@@ -1,8 +1,11 @@
 import datetime
 import os
+import pickle
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
+
+import generic
 
 
 class Experiment(torch.nn.Module):
@@ -11,17 +14,13 @@ class Experiment(torch.nn.Module):
         experiment_name,
         model,
         optimizer,
-        optimizer_params,
         regularizer,
-        regularizer_params,
         device="cuda",
     ):
         self.experiment_name = experiment_name
         self.model = model
         self.optimizer = optimizer
-        self.optimizer_params = optimizer_params
         self.regularizer = regularizer
-        self.regularizer_params = regularizer_params
         self.device = device
         self.logdir = None
         self.dataset_name = None
@@ -77,6 +76,23 @@ class Experiment(torch.nn.Module):
             self.dataset_name = data_loader.name
             self.logdir = self.create_logdir()
             self.writer = SummaryWriter(self.logdir)
+
+            generic.save_pickle(self.model.__dict__, self.logdir, "model" + "_dict")
+            generic.save_pickle(
+                self.optimizer.__dict__, self.logdir, "optimizer" + "_dict"
+            )
+            generic.save_pickle(
+                self.regularizer.__dict__, self.logdir, "regularizer" + "_dict"
+            )
+            generic.save_pickle(
+                self.data_loader.__dict__, self.logdir, "data_loader" + "_dict"
+            )
+            generic.save_pickle(
+                self.data_loader.training_data.__dict__,
+                self.logdir,
+                "training_data" + "_dict",
+            )
+
         except:
             raise Exception("Problem creating logging and/or checkpoint directory.")
 
