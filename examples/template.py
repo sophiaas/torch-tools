@@ -1,36 +1,44 @@
 import numpy as np
+from sklearn.datasets import make_classification
 import torch
 from torch.optim import Adam
 
-from torch_tools.data import TrainValLoader
+from torch_tools.data import TrainValLoader, DatasetWrapper
 from torch_tools.experiment import Experiment
 from torch_tools.generic import ParameterDict
 from torch_tools.functional import l1_norm, matrix_2_norm
 
-# from torch_tools.model import Model
 # from torch_tools.optimizer import Optimizer
 from torch_tools.regularizer import Regularizer, MultiRegularizer
 from transform_datasets.torch.vector import Translation
 
 from local_experiments import TestExperiment
+from local_models import SimpleModel
 
 
-in_dim = 64
-out_dim = 10
+in_dim = 20
+out_dim = 2
 
 
 # Data
+# data_params = ParameterDict(
+#     {
+#         "n_classes": out_dim,
+#         "transformation": "translation",
+#         "max_transformation_steps": 10,
+#         "dim": in_dim,
+#         "noise": 0.2,
+#         "seed": 0,
+#     }
+# )
+# dataset = Translation(**data_params)
+
 data_params = ParameterDict(
-    {
-        "n_classes": out_dim,
-        "transformation": "translation",
-        "max_transformation_steps": 10,
-        "dim": in_dim,
-        "noise": 0.2,
-        "seed": 0,
-    }
+    {"n_samples": 1000, "n_features": in_dim, "n_classes": out_dim}
 )
-dataset = Translation(**data_params)
+X, y = make_classification(**data_params)
+dataset = DatasetWrapper(X, y)
+
 
 # Data Loader
 batch_size = 32
@@ -38,9 +46,7 @@ data_loader = TrainValLoader(dataset, batch_size)
 
 # Model
 model_params = ParameterDict({"in_dim": in_dim, "out_dim": out_dim})
-model = torch.nn.Sequential(
-    torch.nn.Linear(in_features=model_params.in_dim, out_features=model_params.out_dim)
-)
+model = SimpleModel(**model_params)
 
 # Optimizer
 # Issue here: have to initialize Adam with model params / values to be optimized
