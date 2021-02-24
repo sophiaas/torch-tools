@@ -24,6 +24,7 @@ class Experiment(torch.nn.Module):
         self.device = device
         self.logdir = None
         self.dataset_name = None
+        self.loss_function = None
 
     # TODO: what should be part of the path?
     def create_logdir(self):
