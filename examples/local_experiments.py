@@ -25,10 +25,10 @@ class TestExperiment(Experiment):
 
             if grad:
                 self.optimizer.zero_grad()
-                output = self.forward(x)
+                output = self.model.forward(x)
             else:
                 with torch.no_grad():
-                    output = self.forward(x)
+                    output = self.model.forward(x)
 
             L = self.loss_function(output, labels)
 
