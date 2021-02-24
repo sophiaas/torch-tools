@@ -1,11 +1,13 @@
+import torch
+from torch.optim import Adam
+
+from torch_tools.experiment import Experiment
+from torch_tools.functional import l1_norm, matrix_2_norm
 from torch_tools.generic import ParameterDict
 from torch_tools.model import Model
-from torch_tools.experiment import Experiment
 from torch_tools.optimizer import Optimizer
 from torch_tools.regularizer import Regularizer
 from transform_dataset.torch.vector import Translation
-from torch.optim import Adam
-from torch_tools.functional import l1_norm, matrix_2_norm
 
 
 model_params = ParameterDict({"n_neurons": 64})
