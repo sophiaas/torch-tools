@@ -15,24 +15,24 @@ class Base(Dataset):
         raise NotImplementedError
 
 
-# class DatasetWrapper(Dataset):
-#     def __init__(self, X, Y=None):
-#         self.data = X
-#         self.name = X.__class__.__name__
-#
-#         if Y is not None:
-#             self.labels = Y
-#
-#     def __getitem__(self, idx):
-#         x = self.data[idx]
-#         if Y is not None:
-#             y = self.labels[idx]
-#             return x, y
-#         else:
-#             return x
-#
-#     def __len__(self):
-#         return len(self.data)
+class DatasetWrapper(Dataset):
+    def __init__(self, X, Y=None):
+        self.data = X
+        self.name = X.__class__.__name__
+
+        if Y is not None:
+            self.labels = Y
+
+    def __getitem__(self, idx):
+        x = self.data[idx]
+        if self.labels is not None:
+            y = self.labels[idx]
+            return x, y
+        else:
+            return x
+
+    def __len__(self):
+        return len(self.data)
 
 
 class TrainValLoader:
