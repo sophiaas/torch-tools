@@ -37,6 +37,8 @@ data_params = ParameterDict(
     {"n_samples": 1000, "n_features": in_dim, "n_classes": out_dim}
 )
 X, y = make_classification(**data_params)
+X = torch.from_numpy(X).float()
+y = torch.from_numpy(y).long()
 dataset = DatasetWrapper(X, y)
 
 
