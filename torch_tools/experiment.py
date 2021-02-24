@@ -49,21 +49,6 @@ class Experiment(torch.nn.Module):
 
         self.logdir = logdir
 
-    # TODO: what else should we log?
-    # Should we give options or leave that to a subclass?
-    def save_checkpoint(self):
-        if epoch % 10 == 0:
-            torch.save(
-                {
-                    "epoch": epoch,
-                    "model_state_dict": self.model.state_dict(),
-                    "optimizer_state_dict": self.optimizer.state_dict(),
-                },
-                os.path.join(
-                    self.logdir, "checkpoints", "checkpoint_{}.pt".format(epoch)
-                ),
-            )
-
     # logstring = "Epoch: {} || Training L: {:.5f}".format(epoch, variable)
     def log(self, epoch, group, name, value):
         self.writer.add_scalar("{}/{}".format(group, name), value, epoch)
@@ -98,7 +83,7 @@ class Experiment(torch.nn.Module):
         raise NotImplementedError
 
     # do we want to pass in data and let the train loading scheme be passed in/parameterized in constructor?
-    def train(self, data_loader, epochs, start_epoch=0):
+    def train(self, data_loader, epochs, start_epoch=0, checkpoint_interval=10):
         try:
             self.create_logdir(dataset_name=data_loader.name)
         except:
@@ -109,13 +94,26 @@ class Experiment(torch.nn.Module):
         self.pickle_attribute_dicts()
         self.pickle_data_loader_dicts(data_loader)
 
-        for i in range(start_epoch, epochs):
+        for i in range(start_epoch, epochs + 1):
             training_loss = self.train_step(data_loader.train, grad=True)
             self.log(i, group="loss", name="train", value=training_loss)
 
             if data_loader.val is not None:
                 validation_loss = self.train_step(data_loader.val, grad=False)
                 self.log(i, group="loss", name="val", value=validation_loss)
+
+            if i % checkpoint_interval == 0:
+                self.save_checkpoint(epoch=i)
+
+    def save_checkpoint(self, epoch):
+        torch.save(
+            {
+                "epoch": epoch,
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+            },
+            os.path.join(self.logdir, "checkpoints", "checkpoint_{}.pt".format(epoch)),
+        )
 
     def load_checkpoint(self, path, checkpoint):
         state_dict = torch.load(
