@@ -1,11 +1,31 @@
 import geomstats.backend as gs
+import torch
 
 
-def l1_penalty(x):
-    return gs.sum(gs.sum(gs.abs(x),axis = 1))
+class Regularizer(torch.nn.module):
+    def __init__(self, function, variables, coefficient):
+        self.function = function
+        self.variables = variables
+        self.coefficient = coefficient
 
-def matrix_2_norm_penalty(matrix):
-    return gs.sum(gs.linalg.norm(matrix, axis=(1,2))**2)
+    def forward(self, variable_dict):
+        penalty = self.function(*(variable_dict[v] for v in self.variables))
+        return self.coefficient * penalty
 
-def lie_alg_sparsity_reg(matrices): #huh?
-    return gs.sum(gs.abs(gs.linalg.norm(matrices,axis = (1,2))))
+
+class MultiRegularizer(torch.nn.Module):
+    def __init__(self, regularizers):
+        """
+        regularizers: list of regularizer objects
+        weights: list of coefficients on the regularizer functions, same length as regularizers
+        """
+        self.regularizers = regularizers
+        self.weights = weights
+        # self.regularizer_params = [x.__dict__ for x in self.regularizers] # USE IF NEEDED
+
+    def forward(self, variable_dict):
+        total_penalty = 0
+        for i, reg in enumerate(self.regularizers):
+            penalty = reg.forward(variable_dict)
+            total_penalty += penalty
+        return total_penalty
