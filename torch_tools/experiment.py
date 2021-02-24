@@ -27,7 +27,9 @@ class Experiment(torch.nn.Module):
         self.loss_function = None
 
     # TODO: what should be part of the path?
-    def create_logdir(self):
+    def create_logdir(self, dataset_name):
+        self.dataset_name = dataset_name
+
         logdir = os.path.join(
             "logs",
             self.experiment_name,
@@ -71,31 +73,31 @@ class Experiment(torch.nn.Module):
 
         raise NotImplementedError
 
+    def pickle_attribute_dicts(self):
+        generic.save_pickle(self.model.__dict__, self.logdir, "model" + "_dict")
+        generic.save_pickle(self.optimizer.__dict__, self.logdir, "optimizer" + "_dict")
+        generic.save_pickle(
+            self.regularizer.__dict__, self.logdir, "regularizer" + "_dict"
+        )
+        generic.save_pickle(
+            self.data_loader.__dict__, self.logdir, "data_loader" + "_dict"
+        )
+        generic.save_pickle(
+            self.data_loader.training_data.__dict__,
+            self.logdir,
+            "training_data" + "_dict",
+        )
+
     # do we want to pass in data and let the train loading scheme be passed in/parameterized in constructor?
     def train(self, data_loader, epochs, start_epoch=0):
         try:
-            self.dataset_name = data_loader.name
-            self.logdir = self.create_logdir()
-            self.writer = SummaryWriter(self.logdir)
-
-            generic.save_pickle(self.model.__dict__, self.logdir, "model" + "_dict")
-            generic.save_pickle(
-                self.optimizer.__dict__, self.logdir, "optimizer" + "_dict"
-            )
-            generic.save_pickle(
-                self.regularizer.__dict__, self.logdir, "regularizer" + "_dict"
-            )
-            generic.save_pickle(
-                self.data_loader.__dict__, self.logdir, "data_loader" + "_dict"
-            )
-            generic.save_pickle(
-                self.data_loader.training_data.__dict__,
-                self.logdir,
-                "training_data" + "_dict",
-            )
-
+            self.logdir = self.create_logdir(dataset_name=data_loader.name)
         except:
             raise Exception("Problem creating logging and/or checkpoint directory.")
+
+        self.writer = SummaryWriter(self.logdir)
+
+        self.pickle_attribute_dicts()
 
         for i in range(start_epoch, epochs):
             training_loss = self.train_step(data_loader.train, grad=True)
