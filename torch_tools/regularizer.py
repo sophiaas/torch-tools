@@ -20,7 +20,6 @@ class MultiRegularizer(torch.nn.Module):
         weights: list of coefficients on the regularizer functions, same length as regularizers
         """
         self.regularizers = regularizers
-        self.weights = weights
         # self.regularizer_params = [x.__dict__ for x in self.regularizers] # USE IF NEEDED
 
     def forward(self, variable_dict):

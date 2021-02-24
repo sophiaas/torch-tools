@@ -3,9 +3,10 @@ import os
 import pickle
 
 import torch
+from torch.nn import ParameterDict
 from torch.utils.tensorboard import SummaryWriter
 
-import generic
+# import generic # fails!, also, AttrDict not defined
 
 
 class Experiment(torch.nn.Module):
@@ -17,6 +18,7 @@ class Experiment(torch.nn.Module):
         regularizer,
         device="cuda",
     ):
+        super().__init__()
         self.experiment_name = experiment_name
         self.model = model
         self.optimizer = optimizer
@@ -65,6 +67,11 @@ class Experiment(torch.nn.Module):
     # logstring = "Epoch: {} || Training L: {:.5f}".format(epoch, variable)
     def log(self, epoch, group, name, value):
         self.writer.add_scalar("{}/{}".format(group, name), value, epoch)
+
+    def save_pickle(self, param_dict, path, fname):
+        final_path = os.path.join(path, fname)
+        with open(final_path, "wb") as f:
+            pickle.dump(f, param_dict)
 
     def pickle_attribute_dicts(self):
         generic.save_pickle(self.model.__dict__, self.logdir, "model" + "_dict")

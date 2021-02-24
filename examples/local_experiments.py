@@ -12,9 +12,7 @@ class TestExperiment(Experiment):
         loss_function,
         device="cuda",
     ):
-        super().__init__(
-            self, experiment_name, model, optimizer, regularizer, device="cuda"
-        )
+        super().__init__(experiment_name, model, optimizer, regularizer, device=device)
         self.loss_function = loss_function
 
     def train_step(self, data, grad=True, output=False):
