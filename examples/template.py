@@ -75,3 +75,15 @@ experiment = TestExperiment(
 # TRAIN
 epochs = 20
 experiment.train(data_loader, epochs)
+
+#########################
+# TODO:
+# 1. Test out the regularization classes/functions @Sophia
+# 2. Set up tensorboard and ensure that it's working as expected @Sophia
+# 3. Fix the error(s?) with transform_datasets.Translation & test (dim comes out wrong) @Sophia
+# 4. Test load_checkpoint
+# 5. Test resume
+# 6. Test evaluate & create test loader structure @Sophia
+# 7. Add in more advanced tensorboard features (like in my other project) @Christian
+# 8. Redesign create_logdir to not depend on a dataset name being set this way?
+# 9. Figure out why `import generic` inside `experiment` fails when calling `python template.py`
