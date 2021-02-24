@@ -73,7 +73,7 @@ experiment = TestExperiment(
 )
 
 # TRAIN
-epochs = 20
+epochs = 100
 experiment.train(data_loader, epochs)
 
 #########################
@@ -81,6 +81,7 @@ experiment.train(data_loader, epochs)
 # 1. Test out the regularization classes/functions @Sophia
 # 2. Set up tensorboard and ensure that it's working as expected @Sophia
 # 3. Fix the error(s?) with transform_datasets.Translation & test (dim comes out wrong) @Sophia
+# 3a. Create a standard generic type/wrapper structure for creating new datasets
 # 4. Test load_checkpoint
 # 5. Test resume
 # 6. Test evaluate & create test loader structure @Sophia

@@ -49,7 +49,10 @@ class Experiment(torch.nn.Module):
 
         self.logdir = logdir
 
-    # logstring = "Epoch: {} || Training L: {:.5f}".format(epoch, variable)
+    def print_status(self, epoch, name, value):
+        status_string = "Epoch: {} || {}: {:.5f}".format(epoch, name, value)
+        print(status_string)
+
     def log(self, epoch, group, name, value):
         self.writer.add_scalar("{}/{}".format(group, name), value, epoch)
 
@@ -83,7 +86,14 @@ class Experiment(torch.nn.Module):
         raise NotImplementedError
 
     # do we want to pass in data and let the train loading scheme be passed in/parameterized in constructor?
-    def train(self, data_loader, epochs, start_epoch=0, checkpoint_interval=10):
+    def train(
+        self,
+        data_loader,
+        epochs,
+        start_epoch=0,
+        print_status_updates=True,
+        checkpoint_interval=10,
+    ):
         try:
             self.create_logdir(dataset_name=data_loader.name)
         except:
@@ -103,6 +113,9 @@ class Experiment(torch.nn.Module):
                 self.log(i, group="loss", name="val", value=validation_loss)
 
             if i % checkpoint_interval == 0:
+                if print_status_updates == True:
+                    self.print_status(epoch=i, name="Train Loss", value=training_loss)
+                    self.print_status(epoch=i, name="Val Loss", value=validation_loss)
                 self.save_checkpoint(epoch=i)
 
     def save_checkpoint(self, epoch):
