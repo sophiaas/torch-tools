@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 
@@ -14,18 +15,39 @@ class Base(Dataset):
         raise NotImplementedError
 
 
-def TrainValLoader(DataLoader):
-    def __init__(self, dataset, batch_size, fraction_val=0.2, seed=0, num_workers=4):
+# class DatasetWrapper(Dataset):
+#     def __init__(self, X, Y=None):
+#         self.data = X
+#         self.name = X.__class__.__name__
+#
+#         if Y is not None:
+#             self.labels = Y
+#
+#     def __getitem__(self, idx):
+#         x = self.data[idx]
+#         if Y is not None:
+#             y = self.labels[idx]
+#             return x, y
+#         else:
+#             return x
+#
+#     def __len__(self):
+#         return len(self.data)
 
+
+class TrainValLoader:
+    def __init__(self, dataset, batch_size, fraction_val=0.2, seed=0, num_workers=4):
+        # super().__init__()
         if fraction_val > 1.0 or fraction_val < 0.0:
             raise ValueError("fraction_val must be a fraction between 0 and 1")
 
-        self.name = dataset.name
+        self.name = dataset.__class__.__name__
         self.batch_size = batch_size
         self.fraction_val = fraction_val
         self.seed = seed
 
         if fraction_val > 0.0:
+            dataset_size = len(dataset)
             indices = list(range(dataset_size))
             split = int(np.floor(fraction_val * len(dataset)))
 

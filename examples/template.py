@@ -36,22 +36,22 @@ dataset = Translation(**data_params)
 batch_size = 32
 data_loader = TrainValLoader(dataset, batch_size)
 
-
-# Optimizer
-# Issue here: have to initialize Adam with model params / values to be optimized
-# Do we want to do this outside or inside Expt?
-optimizer_params = ParameterDict({"lr": 1e-3})
-optimizer = Adam
-
-# Regularizer
-reg1 = Regularizer(l1_norm, "x", 0.7)
-regularizer = MultiRegularizer([reg1])
-
 # Model
 model_params = ParameterDict({"in_dim": in_dim, "out_dim": out_dim})
 model = torch.nn.Sequential(
     torch.nn.Linear(in_features=model_params.in_dim, out_features=model_params.out_dim)
 )
+
+# Optimizer
+# Issue here: have to initialize Adam with model params / values to be optimized
+# Do we want to do this outside or inside Expt?
+optimizer_params = ParameterDict({"lr": 1e-3})
+optimizer = Adam(model.parameters(), **optimizer_params)
+
+# Regularizer
+reg1 = Regularizer(l1_norm, "x", 0.7)
+regularizer = MultiRegularizer([reg1])
+
 
 # Loss
 loss_function = torch.nn.CrossEntropyLoss()

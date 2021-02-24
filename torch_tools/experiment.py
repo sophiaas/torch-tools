@@ -71,19 +71,19 @@ class Experiment(torch.nn.Module):
     def save_pickle(self, param_dict, path, fname):
         final_path = os.path.join(path, fname)
         with open(final_path, "wb") as f:
-            pickle.dump(f, param_dict)
+            pickle.dump(param_dict, f)
 
     def pickle_attribute_dicts(self):
-        generic.save_pickle(self.model.__dict__, self.logdir, "model" + "_dict")
-        generic.save_pickle(self.optimizer.__dict__, self.logdir, "optimizer" + "_dict")
-        generic.save_pickle(
+        self.save_pickle(self.model.__dict__, self.logdir, "model" + "_dict")
+        self.save_pickle(self.optimizer.__dict__, self.logdir, "optimizer" + "_dict")
+        self.save_pickle(
             self.regularizer.__dict__, self.logdir, "regularizer" + "_dict"
         )
-        generic.save_pickle(
-            self.data_loader.__dict__, self.logdir, "data_loader" + "_dict"
-        )
-        generic.save_pickle(
-            self.data_loader.training_data.__dict__,
+
+    def pickle_data_loader_dicts(self, data_loader):
+        self.save_pickle(data_loader.__dict__, self.logdir, "data_loader" + "_dict")
+        self.save_pickle(
+            data_loader.training_data.__dict__,
             self.logdir,
             "training_data" + "_dict",
         )
@@ -106,7 +106,8 @@ class Experiment(torch.nn.Module):
 
         self.writer = SummaryWriter(self.logdir)
 
-        selfpickle_attribute_dicts()
+        self.pickle_attribute_dicts()
+        self.pickle_data_loader_dicts(data_loader)
 
         for i in range(start_epoch, epochs):
             training_loss = self.train_step(data_loader.train, grad=True)
