@@ -41,7 +41,7 @@ class TrainValLoader:
         if fraction_val > 1.0 or fraction_val < 0.0:
             raise ValueError("fraction_val must be a fraction between 0 and 1")
 
-        self.name = dataset.__class__.__name__
+        self.name = dataset.name
         self.batch_size = batch_size
         self.fraction_val = fraction_val
         self.seed = seed
