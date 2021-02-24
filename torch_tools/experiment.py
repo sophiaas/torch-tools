@@ -83,7 +83,7 @@ class Experiment(torch.nn.Module):
     def pickle_data_loader_dicts(self, data_loader):
         self.save_pickle(data_loader.__dict__, self.logdir, "data_loader" + "_dict")
         self.save_pickle(
-            data_loader.training_data.__dict__,
+            data_loader.train.__dict__,
             self.logdir,
             "training_data" + "_dict",
         )
