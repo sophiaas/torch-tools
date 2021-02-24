@@ -27,6 +27,7 @@ class Experiment(torch.nn.Module):
         self.loss_function = None
 
     # TODO: what should be part of the path?
+    # We should remove dataset name as a dependency here
     def create_logdir(self, dataset_name):
         self.dataset_name = dataset_name
 
@@ -43,7 +44,8 @@ class Experiment(torch.nn.Module):
 
         os.mkdir(logdir)
         os.mkdir(os.path.join(logdir, "checkpoints"))
-        return logdir
+
+        self.logdir = logdir
 
     # TODO: what else should we log?
     # Should we give options or leave that to a subclass?
@@ -64,15 +66,6 @@ class Experiment(torch.nn.Module):
     def log(self, epoch, group, name, value):
         self.writer.add_scalar("{}/{}".format(group, name), value, epoch)
 
-    # right now this is an overridden method by the inherited class...
-    # do we want models to inherit experiment or for experiments to ingest models?
-    #   ingest? -> 1) model provides its own train step, this calls it
-    #              2) New experiment subclass for each train step type (meh), idk
-    #              3) new class
-    def train_step(self, data, grad=True, output=False):
-
-        raise NotImplementedError
-
     def pickle_attribute_dicts(self):
         generic.save_pickle(self.model.__dict__, self.logdir, "model" + "_dict")
         generic.save_pickle(self.optimizer.__dict__, self.logdir, "optimizer" + "_dict")
@@ -88,16 +81,25 @@ class Experiment(torch.nn.Module):
             "training_data" + "_dict",
         )
 
+    # right now this is an overridden method by the inherited class...
+    # do we want models to inherit experiment or for experiments to ingest models?
+    #   ingest? -> 1) model provides its own train step, this calls it
+    #              2) New experiment subclass for each train step type (meh), idk
+    #              3) new class
+    def train_step(self, data, grad=True, output=False):
+
+        raise NotImplementedError
+
     # do we want to pass in data and let the train loading scheme be passed in/parameterized in constructor?
     def train(self, data_loader, epochs, start_epoch=0):
         try:
-            self.logdir = self.create_logdir(dataset_name=data_loader.name)
+            self.create_logdir(dataset_name=data_loader.name)
         except:
             raise Exception("Problem creating logging and/or checkpoint directory.")
 
         self.writer = SummaryWriter(self.logdir)
 
-        self.pickle_attribute_dicts()
+        selfpickle_attribute_dicts()
 
         for i in range(start_epoch, epochs):
             training_loss = self.train_step(data_loader.train, grad=True)
