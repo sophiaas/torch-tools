@@ -2,7 +2,7 @@ import geomstats.backend as gs
 import torch
 
 
-class Regularizer(torch.nn.module):
+class Regularizer(torch.nn.Module):
     def __init__(self, function, variables, coefficient):
         self.function = function
         self.variables = variables
