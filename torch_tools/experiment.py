@@ -6,7 +6,7 @@ import torch
 from torch.nn import ParameterDict
 from torch.utils.tensorboard import SummaryWriter
 
-# import generic # fails!, also, AttrDict not defined
+# import generic
 
 
 class Experiment(torch.nn.Module):
@@ -81,11 +81,19 @@ class Experiment(torch.nn.Module):
     #   ingest? -> 1) model provides its own train step, this calls it
     #              2) New experiment subclass for each train step type (meh), idk
     #              3) new class
-    def train_step(self, data):
+    def train_step(self, data, epoch=None):
 
         raise NotImplementedError
 
-    def evaluate(self, data):
+    def evaluate(self, data, epoch=None):
+
+        raise NotImplementedError
+
+    def log_on_start(self, data):
+
+        raise NotImplementedError
+
+    def log_on_end(self, data):
 
         raise NotImplementedError
 
@@ -100,20 +108,24 @@ class Experiment(torch.nn.Module):
     ):
         try:
             self.create_logdir(dataset_name=data_loader.name)
+            self.writer = SummaryWriter(self.logdir)
         except:
             raise Exception("Problem creating logging and/or checkpoint directory.")
 
-        self.writer = SummaryWriter(self.logdir)
+        try:
+            self.log_on_start(data=data_loader)
+        except NotImplementedError:
+            pass
 
         self.pickle_attribute_dicts()
         self.pickle_data_loader_dicts(data_loader)
 
         for i in range(start_epoch, epochs + 1):
-            training_loss = self.train_step(data_loader.train)
+            training_loss = self.train_step(data_loader.train, epoch=i)
             self.log(i, group="loss", name="train", value=training_loss)
 
             if data_loader.val is not None:
-                validation_loss = self.evaluate(data_loader.val)
+                validation_loss = self.evaluate(data_loader.val, epoch=i)
                 self.log(i, group="loss", name="val", value=validation_loss)
 
             if i % checkpoint_interval == 0:
@@ -121,6 +133,11 @@ class Experiment(torch.nn.Module):
                     self.print_status(epoch=i, name="Train Loss", value=training_loss)
                     self.print_status(epoch=i, name="Val Loss", value=validation_loss)
                 self.save_checkpoint(epoch=i)
+
+        try:
+            self.log_on_end(data=data_loader)
+        except NotImplementedError:
+            pass
 
     def save_checkpoint(self, epoch):
         torch.save(
