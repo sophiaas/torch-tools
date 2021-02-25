@@ -4,6 +4,7 @@ import torch
 
 class Regularizer(torch.nn.Module):
     def __init__(self, function, variables, coefficient):
+        super().__init__()
         self.function = function
         self.variables = variables
         self.coefficient = coefficient
@@ -19,6 +20,7 @@ class MultiRegularizer(torch.nn.Module):
         regularizers: list of regularizer objects
         weights: list of coefficients on the regularizer functions, same length as regularizers
         """
+        super().__init__()
         self.regularizers = regularizers
         # self.regularizer_params = [x.__dict__ for x in self.regularizers] # USE IF NEEDED
 
