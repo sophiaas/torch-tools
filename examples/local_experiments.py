@@ -48,7 +48,7 @@ class TestExperiment(Experiment):
             total_L /= len(data)
         return total_L
 
-    # LOGGING
+    # Virtual Functions
     def on_begin(self, data):
         self.log_model_graph(data)
         self.log_data_embedding(data)
@@ -56,6 +56,7 @@ class TestExperiment(Experiment):
     def on_end(self, data):
         self.log_hyperparameters(data)
 
+    # Logging functions
     def log_model_params_epoch(self, epoch):
         self.writer.add_histogram("linear0.weights", self.model.layers[0].weight, epoch)
         self.writer.add_histogram("linear0.bias", self.model.layers[0].bias, epoch)
@@ -67,16 +68,3 @@ class TestExperiment(Experiment):
     def log_data_embedding(self, data):
         train_x, train_y = data.train.dataset[data.train.batch_sampler.sampler.indices]
         self.writer.add_embedding(train_x, metadata=train_y)
-
-    def log_hyperparameters(self, data):
-        hparam_dict = {
-            "lr": self.optimizer.param_groups[0]["lr"],
-            "bsize": data.batch_size,
-        }
-        train_loss = self.evaluate(data.train)
-        metric_dict = {"hparam/train_loss": train_loss}
-        if data.val is not None:
-            validation_loss = self.evaluate(data.val)
-            metric_dict["hparam/val_loss"] = validation_loss
-
-        self.writer.add_hparams(hparam_dict, metric_dict)
