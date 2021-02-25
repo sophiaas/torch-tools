@@ -24,8 +24,8 @@ class Experiment(torch.nn.Module):
         self.optimizer = optimizer
         self.regularizer = regularizer
         self.device = device
-        self.logdir = None
-        self.dataset_name = None
+        self.logdir = None  # remove? / make immutable?
+        self.dataset_name = None  # remove? / make immutable?
         self.loss_function = None
 
     # Virtual Functions
@@ -41,7 +41,7 @@ class Experiment(torch.nn.Module):
     def on_end(self, data):
         raise NotImplementedError
 
-    # do we want to pass in data and let the train loading scheme be passed in/parameterized in constructor?
+    # TRAINING
     def train(
         self,
         data_loader,
@@ -54,11 +54,11 @@ class Experiment(torch.nn.Module):
 
         for i in range(start_epoch, epochs + 1):
             training_loss = self.train_step(data_loader.train, epoch=i)
-            self.log(i, group="loss", name="train", value=training_loss)
+            self.log_scalar(i, group="loss", name="train", value=training_loss)
 
             if data_loader.val is not None:
                 validation_loss = self.evaluate(data_loader.val, epoch=i)
-                self.log(i, group="loss", name="val", value=validation_loss)
+                self.log_scalar(i, group="loss", name="val", value=validation_loss)
 
             if i % checkpoint_interval == 0:
                 if print_status_updates == True:
@@ -69,28 +69,6 @@ class Experiment(torch.nn.Module):
         self.end(data=data_loader)
 
     # LOGGING SETUP
-    def begin(self, data):
-        try:
-            self.create_logdir(data=data)
-            self.writer = SummaryWriter(self.logdir)
-        except:
-            raise Exception("Problem creating logging and/or checkpoint directory.")
-
-        try:
-            self.on_begin(data=data)
-        except NotImplementedError:
-            pass
-
-        self.pickle_attribute_dicts()
-        self.pickle_data_loader_dicts(data)
-
-    def end(self, data):
-        self.log_regularizer_hparams(data)
-        try:
-            self.on_end(data=data)
-        except NotImplementedError:
-            pass
-
     def create_logdir(self, data):
         self.dataset_name = data.name
 
@@ -110,28 +88,76 @@ class Experiment(torch.nn.Module):
 
         self.logdir = logdir
 
-    # LOGGING
+    def begin(self, data):
+        try:
+            self.create_logdir(data=data)
+            self.writer = SummaryWriter(self.logdir)
+        except:
+            raise Exception("Problem creating logging and/or checkpoint directory.")
 
-    def log_regularizer_hparams(self, data):
+        try:
+            self.on_begin(data=data)
+        except NotImplementedError:
+            pass
 
-        hparam_dict = {
-            "lr": self.optimizer.param_groups[0]["lr"],
-            "bsize": data.batch_size,
-        }
+        self.pickle_attribute_dicts()
+        self.pickle_data_loader_dicts(data)
+
+    def end(self, data):
+        self.log_hyperparameters(data)
+        try:
+            self.on_end(data=data)
+        except NotImplementedError:
+            pass
+
+    # TB LOGGING
+    def log_scalar(self, epoch, group, name, value):
+        self.writer.add_scalar("{}/{}".format(group, name), value, epoch)
+
+    # TB HPARAMS
+    def log_hyperparameters(self, data):
+        opt_hparams = self.get_optimizer_hparams()
+        data_hparams = self.get_data_hparams(data)
+        reg_hparams = self.get_regularizer_hparams()
+
+        hparam_dict = {**opt_hparams, **data_hparams, **reg_hparams}
+        metric_dict = self.get_hparam_metrics(data)
+
+        self.writer.add_hparams(hparam_dict, metric_dict)
+
+    def get_hparam_metrics(self, data):
         train_loss = self.evaluate(data.train)
         metric_dict = {"hparam/train_loss": train_loss}
         if data.val is not None:
             validation_loss = self.evaluate(data.val)
             metric_dict["hparam/val_loss"] = validation_loss
 
-        self.writer.add_hparams(hparam_dict, metric_dict)
+        return metric_dict
 
+    def get_regularizer_hparams(self):
+        regs = self.regularizer.regularizers
+        reg_hparam_dict = {}
+        for reg in regs:
+            reg_param_dict = reg.get_regularizer_param_dict()
+            fn_name = reg_param_dict["function"].__name__
+            variables = reg_param_dict["variables"]
+
+            name = "{}_{}".format("r_" + fn_name, variables)
+            coeff = reg_param_dict["coefficient"]
+            reg_hparam_dict[name] = coeff
+
+        return reg_hparam_dict
+
+    def get_optimizer_hparams(self):
+        return {"lr": self.optimizer.param_groups[0]["lr"]}
+
+    def get_data_hparams(self, data):
+        return {"bsize": data.batch_size}
+
+    # ALTERNATIVE LOGGING
     def print_status(self, epoch, name, value):
         status_string = "Epoch: {} || {}: {:.5f}".format(epoch, name, value)
         print(status_string)
-
-    def log(self, epoch, group, name, value):
-        self.writer.add_scalar("{}/{}".format(group, name), value, epoch)
 
     def save_pickle(self, param_dict, path, fname):
         final_path = os.path.join(path, fname)
@@ -153,6 +179,7 @@ class Experiment(torch.nn.Module):
             "training_data" + "_dict",
         )
 
+    # STATE MANAGEMENT
     def save_checkpoint(self, epoch):
         torch.save(
             {
