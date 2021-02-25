@@ -37,7 +37,6 @@ class DatasetWrapper(Dataset):
 
 class TrainValLoader:
     def __init__(self, dataset, batch_size, fraction_val=0.2, seed=0, num_workers=4):
-        # super().__init__()
         if fraction_val > 1.0 or fraction_val < 0.0:
             raise ValueError("fraction_val must be a fraction between 0 and 1")
 
