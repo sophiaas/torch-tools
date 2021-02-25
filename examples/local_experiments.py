@@ -48,14 +48,14 @@ class TestExperiment(Experiment):
         return total_L
 
     # LOGGING
-    def log_on_start(self, data):
+    def on_begin(self, data):
         batch_x, batch_y = next(iter(data.train))
         self.writer.add_graph(self.model, batch_x)
 
         train_x, train_y = data.train.dataset[data.train.batch_sampler.sampler.indices]
         self.writer.add_embedding(train_x, metadata=train_y)
 
-    def log_on_end(self, data):
+    def on_end(self, data):
         # log train, val, and hyperparameters
         hparam_dict = {
             "lr": self.optimizer.param_groups[0]["lr"],
