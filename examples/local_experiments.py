@@ -15,29 +15,31 @@ class TestExperiment(Experiment):
         super().__init__(experiment_name, model, optimizer, regularizer, device=device)
         self.loss_function = loss_function
 
-    def train_step(self, data, grad=True, output=False):
-
+    def train_step(self, data):
         total_L = 0
-
         for i, (x, labels) in enumerate(data):
             x = x.to(self.device)
             labels = labels.to(self.device)
 
-            if grad:
-                self.optimizer.zero_grad()
-                output = self.model.forward(x)
-            else:
-                with torch.no_grad():
-                    output = self.model.forward(x)
-
+            output = self.model.forward(x)
             L = self.loss_function(output, labels)
 
-            if grad:
-                L.backward()
-                self.optimizer.step()
+            self.optimizer.zero_grad()
+            L.backward()
+            self.optimizer.step()
 
             total_L += L
-
         total_L /= len(data)
+        return total_L
 
+    def evaluate(self, data):
+        with torch.no_grad():
+            total_L = 0
+            for i, (x, labels) in enumerate(data):
+                x = x.to(self.device)
+                labels = labels.to(self.device)
+                output = self.model.forward(x)
+                L = self.loss_function(output, labels)
+                total_L += L
+            total_L /= len(data)
         return total_L

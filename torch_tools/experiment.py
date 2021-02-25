@@ -81,7 +81,11 @@ class Experiment(torch.nn.Module):
     #   ingest? -> 1) model provides its own train step, this calls it
     #              2) New experiment subclass for each train step type (meh), idk
     #              3) new class
-    def train_step(self, data, grad=True, output=False):
+    def train_step(self, data):
+
+        raise NotImplementedError
+
+    def evaluate(self, data):
 
         raise NotImplementedError
 
@@ -105,11 +109,11 @@ class Experiment(torch.nn.Module):
         self.pickle_data_loader_dicts(data_loader)
 
         for i in range(start_epoch, epochs + 1):
-            training_loss = self.train_step(data_loader.train, grad=True)
+            training_loss = self.train_step(data_loader.train)
             self.log(i, group="loss", name="train", value=training_loss)
 
             if data_loader.val is not None:
-                validation_loss = self.train_step(data_loader.val, grad=False)
+                validation_loss = self.evaluate(data_loader.val)
                 self.log(i, group="loss", name="val", value=validation_loss)
 
             if i % checkpoint_interval == 0:
@@ -138,8 +142,3 @@ class Experiment(torch.nn.Module):
     def resume(self, path, checkpoint, data_loader, epochs):
         self.load_checkpoint(path, checkpoint)
         self.train(data_loader, epochs, start_epoch=checkpoint)
-
-    ## this may not work if training has access to things not available in test
-    def evaluate(self, test_loader, output=True):
-        out = self.train_step(test_loader, grad=False, output=True)
-        return out
