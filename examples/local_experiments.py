@@ -15,7 +15,15 @@ class TestExperiment(Experiment):
         super().__init__(experiment_name, model, optimizer, regularizer, device=device)
         self.loss_function = loss_function
 
-    def train_step(self, data):
+    def log_on_start(self, data):
+        x, y = next(iter(data.train))
+        self.writer.add_graph(self.model, x)
+
+    def log_model_params(self, epoch):
+        self.writer.add_histogram("linear0.weights", self.model.layers[0].weight, epoch)
+        self.writer.add_histogram("linear0.bias", self.model.layers[0].bias, epoch)
+
+    def train_step(self, data, epoch=None):
         total_L = 0
         for i, (x, labels) in enumerate(data):
             x = x.to(self.device)
@@ -27,12 +35,14 @@ class TestExperiment(Experiment):
             self.optimizer.zero_grad()
             L.backward()
             self.optimizer.step()
-
             total_L += L
         total_L /= len(data)
+
+        self.log_model_params(epoch)
+
         return total_L
 
-    def evaluate(self, data):
+    def evaluate(self, data, epoch=None):
         with torch.no_grad():
             total_L = 0
             for i, (x, labels) in enumerate(data):
