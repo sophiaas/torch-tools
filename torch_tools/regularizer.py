@@ -10,13 +10,17 @@ class Regularizer(torch.nn.Module):
         self.coefficient = coefficient
 
     def __str__(self):
-        names = ["function", "variables", "coefficient"]
-        values = map(str, [self.function, self.variables, self.coefficient])
-        vars_string = [
-            "{}: {}, ".format(name, value) for (name, value) in zip(names, values)
-        ]
-        out_string = "Regularizer | " + "".join(vars_string)
+        param_dict = self.get_regularizer_param_dict()
+        out_string = "Regularizer | " + str(param_dict)
         return out_string
+
+    def get_regularizer_param_dict(self):
+        param_dict = {
+            key: val
+            for (key, val) in vars(self).items()
+            if ("_" not in key) and ("training" not in key)
+        }
+        return param_dict
 
     def forward(self, variable_dict):
         penalty = self.function(*(variable_dict[v] for v in self.variables))
