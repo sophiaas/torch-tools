@@ -47,6 +47,7 @@ class TestExperiment(Experiment):
             labels = labels.to(self.device)
 
             output = self.model.forward(x)
+
             L = self.loss_function(output, labels)
 
             self.optimizer.zero_grad()
