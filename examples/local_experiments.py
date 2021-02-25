@@ -15,6 +15,7 @@ class TestExperiment(Experiment):
         super().__init__(experiment_name, model, optimizer, regularizer, device=device)
         self.loss_function = loss_function
 
+    # TRAINING
     def train_step(self, data, epoch=None):
         total_L = 0
         for i, (x, labels) in enumerate(data):
@@ -31,7 +32,7 @@ class TestExperiment(Experiment):
             total_L += L
         total_L /= len(data)
 
-        self.log_model_params(epoch)
+        self.log_model_params_epoch(epoch)
 
         return total_L
 
@@ -49,14 +50,25 @@ class TestExperiment(Experiment):
 
     # LOGGING
     def on_begin(self, data):
+        self.log_model_graph(data)
+        self.log_data_embedding(data)
+
+    def on_end(self, data):
+        self.log_hyperparameters(data)
+
+    def log_model_params_epoch(self, epoch):
+        self.writer.add_histogram("linear0.weights", self.model.layers[0].weight, epoch)
+        self.writer.add_histogram("linear0.bias", self.model.layers[0].bias, epoch)
+
+    def log_model_graph(self, data):
         batch_x, batch_y = next(iter(data.train))
         self.writer.add_graph(self.model, batch_x)
 
+    def log_data_embedding(self, data):
         train_x, train_y = data.train.dataset[data.train.batch_sampler.sampler.indices]
         self.writer.add_embedding(train_x, metadata=train_y)
 
-    def on_end(self, data):
-        # log train, val, and hyperparameters
+    def log_hyperparameters(self, data):
         hparam_dict = {
             "lr": self.optimizer.param_groups[0]["lr"],
             "bsize": data.batch_size,
@@ -68,7 +80,3 @@ class TestExperiment(Experiment):
             metric_dict["hparam/val_loss"] = validation_loss
 
         self.writer.add_hparams(hparam_dict, metric_dict)
-
-    def log_model_params(self, epoch):
-        self.writer.add_histogram("linear0.weights", self.model.layers[0].weight, epoch)
-        self.writer.add_histogram("linear0.bias", self.model.layers[0].bias, epoch)
