@@ -28,20 +28,17 @@ class Experiment(torch.nn.Module):
         self.dataset_name = None
         self.loss_function = None
 
+    # Virtual Functions
     def train_step(self, data, epoch=None):
-
         raise NotImplementedError
 
     def evaluate(self, data, epoch=None):
-
         raise NotImplementedError
 
-    def log_on_start(self, data):
-
+    def on_begin(self, data):
         raise NotImplementedError
 
-    def log_on_end(self, data):
-
+    def on_end(self, data):
         raise NotImplementedError
 
     # do we want to pass in data and let the train loading scheme be passed in/parameterized in constructor?
@@ -53,19 +50,7 @@ class Experiment(torch.nn.Module):
         print_status_updates=True,
         checkpoint_interval=10,
     ):
-        try:
-            self.create_logdir(dataset_name=data_loader.name)
-            self.writer = SummaryWriter(self.logdir)
-        except:
-            raise Exception("Problem creating logging and/or checkpoint directory.")
-
-        try:
-            self.log_on_start(data=data_loader)
-        except NotImplementedError:
-            pass
-
-        self.pickle_attribute_dicts()
-        self.pickle_data_loader_dicts(data_loader)
+        self.begin(data=data_loader)
 
         for i in range(start_epoch, epochs + 1):
             training_loss = self.train_step(data_loader.train, epoch=i)
@@ -81,15 +66,32 @@ class Experiment(torch.nn.Module):
                     self.print_status(epoch=i, name="Val Loss", value=validation_loss)
                 self.save_checkpoint(epoch=i)
 
+        self.end(data=data_loader)
+
+    # SETUP & LOGGING
+    def begin(self, data):
         try:
-            self.log_on_end(data=data_loader)
+            self.create_logdir(data=data)
+            self.writer = SummaryWriter(self.logdir)
+        except:
+            raise Exception("Problem creating logging and/or checkpoint directory.")
+
+        try:
+            self.on_begin(data=data)
         except NotImplementedError:
             pass
 
-    # TODO: what should be part of the path?
-    # We should remove dataset name as a dependency here
-    def create_logdir(self, dataset_name):
-        self.dataset_name = dataset_name
+        self.pickle_attribute_dicts()
+        self.pickle_data_loader_dicts(data)
+
+    def end(self, data):
+        try:
+            self.on_end(data=data)
+        except NotImplementedError:
+            pass
+
+    def create_logdir(self, data):
+        self.dataset_name = data.name
 
         logdir = os.path.join(
             "logs",
