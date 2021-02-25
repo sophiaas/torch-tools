@@ -73,5 +73,5 @@ experiment = TestExperiment(
 )
 
 # TRAIN
-epochs = 100
+epochs = 50
 experiment.train(data_loader, epochs)
