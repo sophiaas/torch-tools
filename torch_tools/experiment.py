@@ -93,6 +93,10 @@ class Experiment(torch.nn.Module):
 
         raise NotImplementedError
 
+    def log_on_end(self, data):
+
+        raise NotImplementedError
+
     # do we want to pass in data and let the train loading scheme be passed in/parameterized in constructor?
     def train(
         self,
@@ -129,6 +133,11 @@ class Experiment(torch.nn.Module):
                     self.print_status(epoch=i, name="Train Loss", value=training_loss)
                     self.print_status(epoch=i, name="Val Loss", value=validation_loss)
                 self.save_checkpoint(epoch=i)
+
+        try:
+            self.log_on_end(data=data_loader)
+        except NotImplementedError:
+            pass
 
     def save_checkpoint(self, epoch):
         torch.save(
