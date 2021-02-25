@@ -68,7 +68,7 @@ class Experiment(torch.nn.Module):
 
         self.end(data=data_loader)
 
-    # SETUP & LOGGING
+    # LOGGING SETUP
     def begin(self, data):
         try:
             self.create_logdir(data=data)
@@ -85,6 +85,7 @@ class Experiment(torch.nn.Module):
         self.pickle_data_loader_dicts(data)
 
     def end(self, data):
+        self.log_regularizer_hparams(data)
         try:
             self.on_end(data=data)
         except NotImplementedError:
@@ -108,6 +109,22 @@ class Experiment(torch.nn.Module):
         os.mkdir(os.path.join(logdir, "checkpoints"))
 
         self.logdir = logdir
+
+    # LOGGING
+
+    def log_regularizer_hparams(self, data):
+
+        hparam_dict = {
+            "lr": self.optimizer.param_groups[0]["lr"],
+            "bsize": data.batch_size,
+        }
+        train_loss = self.evaluate(data.train)
+        metric_dict = {"hparam/train_loss": train_loss}
+        if data.val is not None:
+            validation_loss = self.evaluate(data.val)
+            metric_dict["hparam/val_loss"] = validation_loss
+
+        self.writer.add_hparams(hparam_dict, metric_dict)
 
     def print_status(self, epoch, name, value):
         status_string = "Epoch: {} || {}: {:.5f}".format(epoch, name, value)
