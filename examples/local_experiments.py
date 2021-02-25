@@ -16,8 +16,12 @@ class TestExperiment(Experiment):
         self.loss_function = loss_function
 
     def log_on_start(self, data):
-        x, y = next(iter(data.train))
-        self.writer.add_graph(self.model, x)
+        batch_x, batch_y = next(iter(data.train))
+        self.writer.add_graph(self.model, batch_x)
+
+        train_x, train_y = data.train.dataset[data.train.batch_sampler.sampler.indices]
+        self.writer.add_graph(self.model, train_x)
+        self.writer.add_embedding(train_x, metadata=train_y)
 
     def log_model_params(self, epoch):
         self.writer.add_histogram("linear0.weights", self.model.layers[0].weight, epoch)
