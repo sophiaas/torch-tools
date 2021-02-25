@@ -6,7 +6,7 @@ import torch
 from torch.nn import ParameterDict
 from torch.utils.tensorboard import SummaryWriter
 
-# import generic # fails!, also, AttrDict not defined
+# import generic
 
 
 class Experiment(torch.nn.Module):
