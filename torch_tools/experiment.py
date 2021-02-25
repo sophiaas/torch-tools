@@ -28,59 +28,6 @@ class Experiment(torch.nn.Module):
         self.dataset_name = None
         self.loss_function = None
 
-    # TODO: what should be part of the path?
-    # We should remove dataset name as a dependency here
-    def create_logdir(self, dataset_name):
-        self.dataset_name = dataset_name
-
-        logdir = os.path.join(
-            "logs",
-            self.experiment_name,
-            self.model.__class__.__name__,
-            self.dataset_name,
-        )
-
-        os.makedirs(logdir, exist_ok=True)
-
-        logdir = os.path.join(logdir, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-
-        os.mkdir(logdir)
-        os.mkdir(os.path.join(logdir, "checkpoints"))
-
-        self.logdir = logdir
-
-    def print_status(self, epoch, name, value):
-        status_string = "Epoch: {} || {}: {:.5f}".format(epoch, name, value)
-        print(status_string)
-
-    def log(self, epoch, group, name, value):
-        self.writer.add_scalar("{}/{}".format(group, name), value, epoch)
-
-    def save_pickle(self, param_dict, path, fname):
-        final_path = os.path.join(path, fname)
-        with open(final_path, "wb") as f:
-            pickle.dump(param_dict, f)
-
-    def pickle_attribute_dicts(self):
-        self.save_pickle(self.model.__dict__, self.logdir, "model" + "_dict")
-        self.save_pickle(self.optimizer.__dict__, self.logdir, "optimizer" + "_dict")
-        self.save_pickle(
-            self.regularizer.__dict__, self.logdir, "regularizer" + "_dict"
-        )
-
-    def pickle_data_loader_dicts(self, data_loader):
-        self.save_pickle(data_loader.__dict__, self.logdir, "data_loader" + "_dict")
-        self.save_pickle(
-            data_loader.train.__dict__,
-            self.logdir,
-            "training_data" + "_dict",
-        )
-
-    # right now this is an overridden method by the inherited class...
-    # do we want models to inherit experiment or for experiments to ingest models?
-    #   ingest? -> 1) model provides its own train step, this calls it
-    #              2) New experiment subclass for each train step type (meh), idk
-    #              3) new class
     def train_step(self, data, epoch=None):
 
         raise NotImplementedError
@@ -138,6 +85,54 @@ class Experiment(torch.nn.Module):
             self.log_on_end(data=data_loader)
         except NotImplementedError:
             pass
+
+    # TODO: what should be part of the path?
+    # We should remove dataset name as a dependency here
+    def create_logdir(self, dataset_name):
+        self.dataset_name = dataset_name
+
+        logdir = os.path.join(
+            "logs",
+            self.experiment_name,
+            self.model.__class__.__name__,
+            self.dataset_name,
+        )
+
+        os.makedirs(logdir, exist_ok=True)
+
+        logdir = os.path.join(logdir, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+
+        os.mkdir(logdir)
+        os.mkdir(os.path.join(logdir, "checkpoints"))
+
+        self.logdir = logdir
+
+    def print_status(self, epoch, name, value):
+        status_string = "Epoch: {} || {}: {:.5f}".format(epoch, name, value)
+        print(status_string)
+
+    def log(self, epoch, group, name, value):
+        self.writer.add_scalar("{}/{}".format(group, name), value, epoch)
+
+    def save_pickle(self, param_dict, path, fname):
+        final_path = os.path.join(path, fname)
+        with open(final_path, "wb") as f:
+            pickle.dump(param_dict, f)
+
+    def pickle_attribute_dicts(self):
+        self.save_pickle(self.model.__dict__, self.logdir, "model" + "_dict")
+        self.save_pickle(self.optimizer.__dict__, self.logdir, "optimizer" + "_dict")
+        self.save_pickle(
+            self.regularizer.__dict__, self.logdir, "regularizer" + "_dict"
+        )
+
+    def pickle_data_loader_dicts(self, data_loader):
+        self.save_pickle(data_loader.__dict__, self.logdir, "data_loader" + "_dict")
+        self.save_pickle(
+            data_loader.train.__dict__,
+            self.logdir,
+            "training_data" + "_dict",
+        )
 
     def save_checkpoint(self, epoch):
         torch.save(
