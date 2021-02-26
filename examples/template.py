@@ -17,7 +17,7 @@ from local_models import SimpleModel
 
 
 in_dim = 20
-out_dim = 2
+out_dim = 3
 
 
 # Data
@@ -34,7 +34,12 @@ out_dim = 2
 # dataset = Translation(**data_params)
 
 data_params = ParameterDict(
-    {"n_samples": 1000, "n_features": in_dim, "n_classes": out_dim}
+    {
+        "n_samples": 1000,
+        "n_features": in_dim,
+        "n_classes": out_dim,
+        "n_clusters_per_class": 1,
+    }
 )
 X, y = make_classification(**data_params)
 X = torch.from_numpy(X).float()
@@ -43,7 +48,7 @@ dataset = DatasetWrapper(X, y)
 
 
 # Data Loader
-batch_size = 32
+batch_size = 64
 data_loader = TrainValLoader(dataset, batch_size)
 
 # Model
@@ -57,7 +62,7 @@ optimizer_params = ParameterDict({"lr": 1e-3})
 optimizer = Adam(model.parameters(), **optimizer_params)
 
 # Regularizer
-reg1 = Regularizer(l1_norm, ["yh"], 0.0)
+reg1 = Regularizer(l1_norm, ["yh"], 15.0)
 regularizer = MultiRegularizer([reg1])
 
 
