@@ -6,7 +6,7 @@ from torch.optim import Adam
 from torch_tools.data import TrainValLoader, DatasetWrapper
 from torch_tools.experiment import Experiment
 from torch_tools.generic import ParameterDict
-from torch_tools.functional import l1_norm, matrix_2_norm
+from torch_tools.functional import l1_norm
 
 # from torch_tools.optimizer import Optimizer
 from torch_tools.regularizer import Regularizer, MultiRegularizer
@@ -57,7 +57,7 @@ optimizer_params = ParameterDict({"lr": 1e-3})
 optimizer = Adam(model.parameters(), **optimizer_params)
 
 # Regularizer
-reg1 = Regularizer(l1_norm, "x", 0.7)
+reg1 = Regularizer(l1_norm, ["yh"], 0.0)
 regularizer = MultiRegularizer([reg1])
 
 
@@ -73,5 +73,5 @@ experiment = TestExperiment(
 )
 
 # TRAIN
-epochs = 100
+epochs = 50
 experiment.train(data_loader, epochs)

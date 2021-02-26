@@ -24,14 +24,53 @@ class Experiment(torch.nn.Module):
         self.optimizer = optimizer
         self.regularizer = regularizer
         self.device = device
-        self.logdir = None
-        self.dataset_name = None
+        self.logdir = None  # remove? / make immutable?
+        self.dataset_name = None  # remove? / make immutable?
         self.loss_function = None
 
-    # TODO: what should be part of the path?
-    # We should remove dataset name as a dependency here
-    def create_logdir(self, dataset_name):
-        self.dataset_name = dataset_name
+    # Virtual Functions
+    def train_step(self, data, epoch=None):
+        raise NotImplementedError
+
+    def evaluate(self, data, epoch=None):
+        raise NotImplementedError
+
+    def on_begin(self, data):
+        raise NotImplementedError
+
+    def on_end(self, data):
+        raise NotImplementedError
+
+    # TRAINING
+    def train(
+        self,
+        data_loader,
+        epochs,
+        start_epoch=0,
+        print_status_updates=True,
+        checkpoint_interval=10,
+    ):
+        self.begin(data=data_loader)
+
+        for i in range(start_epoch, epochs + 1):
+            training_loss = self.train_step(data_loader.train, epoch=i)
+            self.log_scalar(i, group="loss", name="train", value=training_loss)
+
+            if data_loader.val is not None:
+                validation_loss = self.evaluate(data_loader.val, epoch=i)
+                self.log_scalar(i, group="loss", name="val", value=validation_loss)
+
+            if i % checkpoint_interval == 0:
+                if print_status_updates == True:
+                    self.print_status(epoch=i, name="Train Loss", value=training_loss)
+                    self.print_status(epoch=i, name="Val Loss", value=validation_loss)
+                self.save_checkpoint(epoch=i)
+
+        self.end(data=data_loader)
+
+    # LOGGING SETUP
+    def create_logdir(self, data):
+        self.dataset_name = data.name
 
         logdir = os.path.join(
             "logs",
@@ -49,12 +88,73 @@ class Experiment(torch.nn.Module):
 
         self.logdir = logdir
 
+    def begin(self, data):
+        try:
+            self.create_logdir(data=data)
+            self.writer = SummaryWriter(self.logdir)
+        except:
+            raise Exception("Problem creating logging and/or checkpoint directory.")
+
+        try:
+            self.on_begin(data=data)
+        except NotImplementedError:
+            pass
+
+        self.pickle_attribute_dicts()
+        self.pickle_data_loader_dicts(data)
+
+    def end(self, data):
+        self.log_hyperparameters(data)
+        try:
+            self.on_end(data=data)
+        except NotImplementedError:
+            pass
+
+    # TB LOGGING
+    def log_scalar(self, epoch, group, name, value):
+        self.writer.add_scalar("{}/{}".format(group, name), value, epoch)
+
+    # TB HPARAMS
+    def log_hyperparameters(self, data):
+        opt_hparams = self.get_optimizer_hparams()
+        data_hparams = self.get_data_hparams(data)
+        reg_hparams = self.get_regularizer_hparams()
+
+        hparam_dict = {**opt_hparams, **data_hparams, **reg_hparams}
+        metric_dict = self.get_hparam_metrics(data)
+
+        self.writer.add_hparams(hparam_dict, metric_dict)
+
+    def get_hparam_metrics(self, data):
+        train_loss = self.evaluate(data.train)
+        metric_dict = {"hparam/train_loss": train_loss}
+        if data.val is not None:
+            validation_loss = self.evaluate(data.val)
+            metric_dict["hparam/val_loss"] = validation_loss
+
+        return metric_dict
+
+    def get_regularizer_hparams(self):
+        regs = self.regularizer.regularizers
+        reg_hparam_dict = {}
+        for reg in regs:
+            reg_param_dict = reg.get_regularizer_param_dict()
+            name = reg_param_dict["name"]
+            coeff = reg_param_dict["coefficient"]
+            reg_hparam_dict[name] = coeff
+
+        return reg_hparam_dict
+
+    def get_optimizer_hparams(self):
+        return {"lr": self.optimizer.param_groups[0]["lr"]}
+
+    def get_data_hparams(self, data):
+        return {"bsize": data.batch_size}
+
+    # ALTERNATIVE LOGGING
     def print_status(self, epoch, name, value):
         status_string = "Epoch: {} || {}: {:.5f}".format(epoch, name, value)
         print(status_string)
-
-    def log(self, epoch, group, name, value):
-        self.writer.add_scalar("{}/{}".format(group, name), value, epoch)
 
     def save_pickle(self, param_dict, path, fname):
         final_path = os.path.join(path, fname)
@@ -76,69 +176,7 @@ class Experiment(torch.nn.Module):
             "training_data" + "_dict",
         )
 
-    # right now this is an overridden method by the inherited class...
-    # do we want models to inherit experiment or for experiments to ingest models?
-    #   ingest? -> 1) model provides its own train step, this calls it
-    #              2) New experiment subclass for each train step type (meh), idk
-    #              3) new class
-    def train_step(self, data, epoch=None):
-
-        raise NotImplementedError
-
-    def evaluate(self, data, epoch=None):
-
-        raise NotImplementedError
-
-    def log_on_start(self, data):
-
-        raise NotImplementedError
-
-    def log_on_end(self, data):
-
-        raise NotImplementedError
-
-    # do we want to pass in data and let the train loading scheme be passed in/parameterized in constructor?
-    def train(
-        self,
-        data_loader,
-        epochs,
-        start_epoch=0,
-        print_status_updates=True,
-        checkpoint_interval=10,
-    ):
-        try:
-            self.create_logdir(dataset_name=data_loader.name)
-            self.writer = SummaryWriter(self.logdir)
-        except:
-            raise Exception("Problem creating logging and/or checkpoint directory.")
-
-        try:
-            self.log_on_start(data=data_loader)
-        except NotImplementedError:
-            pass
-
-        self.pickle_attribute_dicts()
-        self.pickle_data_loader_dicts(data_loader)
-
-        for i in range(start_epoch, epochs + 1):
-            training_loss = self.train_step(data_loader.train, epoch=i)
-            self.log(i, group="loss", name="train", value=training_loss)
-
-            if data_loader.val is not None:
-                validation_loss = self.evaluate(data_loader.val, epoch=i)
-                self.log(i, group="loss", name="val", value=validation_loss)
-
-            if i % checkpoint_interval == 0:
-                if print_status_updates == True:
-                    self.print_status(epoch=i, name="Train Loss", value=training_loss)
-                    self.print_status(epoch=i, name="Val Loss", value=validation_loss)
-                self.save_checkpoint(epoch=i)
-
-        try:
-            self.log_on_end(data=data_loader)
-        except NotImplementedError:
-            pass
-
+    # STATE MANAGEMENT
     def save_checkpoint(self, epoch):
         torch.save(
             {
