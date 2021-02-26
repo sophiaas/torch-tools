@@ -139,10 +139,7 @@ class Experiment(torch.nn.Module):
         reg_hparam_dict = {}
         for reg in regs:
             reg_param_dict = reg.get_regularizer_param_dict()
-            fn_name = reg_param_dict["function"].__name__
-            variables = reg_param_dict["variables"]
-
-            name = "{}_{}".format("r_" + fn_name, variables)
+            name = reg_param_dict["name"]
             coeff = reg_param_dict["coefficient"]
             reg_hparam_dict[name] = coeff
 
