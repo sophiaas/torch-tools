@@ -19,6 +19,8 @@ class TestExperiment(Experiment):
     def train_step(self, data, epoch=None):
 
         total_L = 0
+        loss_term = 0
+        reg_terms = torch.zeros(len(self.regularizer.regularizers))
         for i, (x, labels) in enumerate(data):
             x = x.to(self.device)
             labels = labels.to(self.device)
@@ -35,24 +37,62 @@ class TestExperiment(Experiment):
             self.optimizer.zero_grad()
             L.backward()
             self.optimizer.step()
-            total_L += L
+
+            with torch.no_grad():
+                total_L += L
+                loss_term += loss
+
+                batch_reg_terms = self.regularizer.forward_dict(variable_dict)
+                reg_terms += torch.tensor(list(batch_reg_terms.values()))
 
         total_L /= len(data)
+        loss_term /= len(data)
+        reg_terms /= len(data)
+
         self.log_model_params_epoch(epoch)
 
-        return total_L
+        loss_terms_dict = {"L": total_L, "loss_term": loss_term}
+        reg_term_dict = {
+            reg.name: reg_terms[i]
+            for i, reg in enumerate(self.regularizer.regularizers)
+        }
+
+        results = {**loss_terms_dict, **reg_term_dict}
+        return results
 
     def evaluate(self, data, epoch=None):
         with torch.no_grad():
             total_L = 0
+            loss_term = 0
+            reg_terms = torch.zeros(len(self.regularizer.regularizers))
             for i, (x, labels) in enumerate(data):
                 x = x.to(self.device)
                 labels = labels.to(self.device)
-                output = self.model.forward(x)
-                L = self.loss_function(output, labels)
+                yh = self.model.forward(x)
+                batch_dict = {"x": x, "yh": yh}
+                variable_dict = self.gen_variable_dict(batch_dict=batch_dict)
+
+                loss = self.loss_function(yh, labels)
+                L = loss + self.regularizer(variable_dict)
+
                 total_L += L
+                loss_term += loss
+
+                batch_reg_terms = self.regularizer.forward_dict(variable_dict)
+                reg_terms += torch.tensor(list(batch_reg_terms.values()))
+
             total_L /= len(data)
-        return total_L
+            loss_term /= len(data)
+            reg_terms /= len(data)
+
+        loss_terms_dict = {"L": total_L, "loss_term": loss_term}
+        reg_term_dict = {
+            reg.name: reg_terms[i]
+            for i, reg in enumerate(self.regularizer.regularizers)
+        }
+
+        results = {**loss_terms_dict, **reg_term_dict}
+        return results
 
     def gen_variable_dict(self, batch_dict):
         return {**dict(self.model.named_parameters()), **batch_dict}

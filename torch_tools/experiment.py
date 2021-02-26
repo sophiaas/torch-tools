@@ -53,17 +53,21 @@ class Experiment(torch.nn.Module):
         self.begin(data=data_loader)
 
         for i in range(start_epoch, epochs + 1):
-            training_loss = self.train_step(data_loader.train, epoch=i)
-            self.log_scalar(i, group="loss", name="train", value=training_loss)
+            train_results = self.train_step(data_loader.train, epoch=i)
+            self.log_step(epoch=i, results=train_results, step_type="train")
 
             if data_loader.val is not None:
-                validation_loss = self.evaluate(data_loader.val, epoch=i)
-                self.log_scalar(i, group="loss", name="val", value=validation_loss)
+                validation_results = self.evaluate(data_loader.val, epoch=i)
+                self.log_step(epoch=i, results=validation_results, step_type="val")
 
             if i % checkpoint_interval == 0:
                 if print_status_updates == True:
-                    self.print_status(epoch=i, name="Train Loss", value=training_loss)
-                    self.print_status(epoch=i, name="Val Loss", value=validation_loss)
+                    self.print_status(
+                        epoch=i, name="Train Loss", value=train_results["L"]
+                    )
+                    self.print_status(
+                        epoch=i, name="Val Loss", value=validation_results["L"]
+                    )
                 self.save_checkpoint(epoch=i)
 
         self.end(data=data_loader)
@@ -77,6 +81,8 @@ class Experiment(torch.nn.Module):
             self.experiment_name,
             self.model.__class__.__name__,
             self.dataset_name,
+            "b_size: {}".format(data.batch_size),
+            "lr: {}__".format(self.optimizer.param_groups[0]["lr"]),
         )
 
         os.makedirs(logdir, exist_ok=True)
@@ -111,6 +117,15 @@ class Experiment(torch.nn.Module):
             pass
 
     # TB LOGGING
+    def log_step(self, epoch, results, step_type):
+        for (name, value) in results.items():
+            self.log_scalar(
+                epoch=epoch,
+                group="loss_reg_{}".format(step_type),
+                name=name,
+                value=value,
+            )
+
     def log_scalar(self, epoch, group, name, value):
         self.writer.add_scalar("{}/{}".format(group, name), value, epoch)
 
@@ -126,11 +141,11 @@ class Experiment(torch.nn.Module):
         self.writer.add_hparams(hparam_dict, metric_dict)
 
     def get_hparam_metrics(self, data):
-        train_loss = self.evaluate(data.train)
-        metric_dict = {"hparam/train_loss": train_loss}
+        train_results = self.evaluate(data.train)
+        metric_dict = {"hparam/train_loss": train_results["L"]}
         if data.val is not None:
-            validation_loss = self.evaluate(data.val)
-            metric_dict["hparam/val_loss"] = validation_loss
+            validation_results = self.evaluate(data.val)
+            metric_dict["hparam/val_loss"] = validation_results["L"]
 
         return metric_dict
 
