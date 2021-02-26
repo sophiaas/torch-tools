@@ -17,21 +17,27 @@ class TestExperiment(Experiment):
 
     # TRAINING
     def train_step(self, data, epoch=None):
+
         total_L = 0
         for i, (x, labels) in enumerate(data):
             x = x.to(self.device)
             labels = labels.to(self.device)
 
-            output = self.model.forward(x)
+            yh = self.model.forward(x)
+            loss = self.loss_function(yh, labels)
 
-            L = self.loss_function(output, labels)
+            batch_dict = {"x": x, "yh": yh}
+
+            variable_dict = self.gen_variable_dict(batch_dict=batch_dict)
+
+            L = loss + self.regularizer(variable_dict)
 
             self.optimizer.zero_grad()
             L.backward()
             self.optimizer.step()
             total_L += L
-        total_L /= len(data)
 
+        total_L /= len(data)
         self.log_model_params_epoch(epoch)
 
         return total_L
@@ -48,13 +54,16 @@ class TestExperiment(Experiment):
             total_L /= len(data)
         return total_L
 
+    def gen_variable_dict(self, batch_dict):
+        return {**dict(self.model.named_parameters()), **batch_dict}
+
     # Virtual Functions
     def on_begin(self, data):
         self.log_model_graph(data)
         self.log_data_embedding(data)
 
-    def on_end(self, data):
-        self.log_hyperparameters(data)
+    # def on_end(self, data):
+    # self.log_hyperparameters(data)
 
     # Logging functions
     def log_model_params_epoch(self, epoch):
