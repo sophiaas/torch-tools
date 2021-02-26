@@ -110,11 +110,13 @@ class Experiment(torch.nn.Module):
         self.pickle_data_loader_dicts(data)
 
     def end(self, data):
-        self.log_hyperparameters(data)
+        # THIS ORDER MATTERS: TB BUG?
         try:
             self.on_end(data=data)
         except NotImplementedError:
             pass
+        self.log_hyperparameters(data)
+
 
     # TB LOGGING
     def log_step(self, epoch, results, step_type):
