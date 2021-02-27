@@ -117,7 +117,6 @@ class Experiment(torch.nn.Module):
             pass
         self.log_hyperparameters(data)
 
-
     # TB LOGGING
     def log_step(self, epoch, results, step_type):
         for (name, value) in results.items():
@@ -173,10 +172,10 @@ class Experiment(torch.nn.Module):
         status_string = "Epoch: {} || {}: {:.5f}".format(epoch, name, value)
         print(status_string)
 
-    def save_pickle(self, param_dict, path, fname):
+    def save_pickle(self, object, path, fname):
         final_path = os.path.join(path, fname)
         with open(final_path, "wb") as f:
-            pickle.dump(param_dict, f)
+            pickle.dump(object, f)
 
     def pickle_attribute_dicts(self):
         self.save_pickle(self.model.__dict__, self.logdir, "model" + "_dict")

@@ -8,7 +8,7 @@ class ParameterDict(dict):
         self.__dict__ = self
 
 
-def save_pickle(param_dict, path, fname):
+def save_pickle(object, path, fname):
     final_path = os.path.join(path, fname)
     with open(final_path, "wb") as f:
-        pickle.dump(f, param_dict)
+        pickle.dump(object, f)
