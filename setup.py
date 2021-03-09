@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="spectral-networks",
+    name="torch-tools",
     version="0.0.1",
     author="Sophia Sanborn, Christian Shewmake",
     author_email="sophia.sanborn@gmail.com",
