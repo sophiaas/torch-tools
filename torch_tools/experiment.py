@@ -6,6 +6,14 @@ from torch.nn import ParameterDict
 from torch.utils.tensorboard import SummaryWriter
 import torch_tools.generic as generic
 
+"""
+
+# TODO:
+- Save experiment object rather than all these pickles. Some issues arise
+X On interrupt end within train
+X Consolidate train and eval into "step"
+"""
+
 
 class Experiment(torch.nn.Module):
     def __init__(
@@ -27,10 +35,19 @@ class Experiment(torch.nn.Module):
         self.loss_function = None
 
     # Virtual Functions
-    def train_step(self, data, epoch=None):
-        raise NotImplementedError
+    def step(self, data, grad=True):
+        """
+        The output of step() should be a dictionary containing losses to log.
+        One of the keys should be "total_loss"
 
-    def evaluate(self, data, epoch=None):
+        Example:
+                loss_dict = {
+                    "total_loss": L_mean,
+                    "representation_loss": L_rep_mean,
+                    "reconstruction_loss": L_rec_mean,
+                    "regularization_loss": L_reg_mean,
+                }
+        """
         raise NotImplementedError
 
     def on_begin(self, data):
@@ -38,6 +55,11 @@ class Experiment(torch.nn.Module):
 
     def on_end(self, data):
         raise NotImplementedError
+
+    # CONVENIENCE WRAPPER
+    def evaluate(self, data):
+        results = self.step(data, grad=False)
+        return results
 
     # TRAINING
     def train(
@@ -51,19 +73,23 @@ class Experiment(torch.nn.Module):
     ):
         self.begin(data=data_loader)
 
-        for i in range(start_epoch, epochs + 1):
-            train_results = self.train_step(data_loader.train, epoch=i)
-            self.log_step(epoch=i, results=train_results, step_type="train")
+        try:
+            for i in range(start_epoch, epochs + 1):
+                train_results = self.step(data_loader.train, grad=True)
+                self.log_step(epoch=i, results=train_results, step_type="train")
 
-            if data_loader.val is not None:
-                validation_results = self.evaluate(data_loader.val, epoch=i)
-                self.log_step(epoch=i, results=validation_results, step_type="val")
+                if data_loader.val is not None:
+                    validation_results = self.evaluate(data_loader.val)
+                    self.log_step(epoch=i, results=validation_results, step_type="val")
 
-            if i % print_interval == 0 and print_status_updates == True:
-                self.print_update(train_results, validation_results, epoch=i)
+                if i % print_interval == 0 and print_status_updates == True:
+                    self.print_update(train_results, validation_results, epoch=i)
 
-            if i % checkpoint_interval == 0:
-                self.save_checkpoint(epoch=i)
+                if i % checkpoint_interval == 0:
+                    self.save_checkpoint(epoch=i)
+
+        except KeyboardInterrupt:
+            self.end(data=data_loader)
 
         self.end(data=data_loader)
 
@@ -88,24 +114,6 @@ class Experiment(torch.nn.Module):
         os.mkdir(os.path.join(logdir, "checkpoints"))
         self.logdir = logdir
 
-    # right now this is an overridden method by the inherited class...
-    # do we want models to inherit experiment or for experiments to ingest models?
-    #   ingest? -> 1) model provides its own train step, this calls it
-    #              2) New experiment subclass for each train step type (meh), idk
-    #              3) new class
-    def train_step(self, data, grad=True, output=False):
-        """
-        The output of train_step should be a dictionary containing losses to log.
-        Examples:
-                loss_dict = {
-                    "total_loss": L_mean,
-                    "representation_loss": L_rep_mean,
-                    "reconstruction_loss": L_rec_mean,
-                    "regularization_loss": L_reg_mean,
-                }
-        """
-        raise NotImplementedError
-
     def begin(self, data):
         try:
             self.create_logdir(data=data)
@@ -119,7 +127,7 @@ class Experiment(torch.nn.Module):
             pass
 
         self.pickle_attribute_dicts()
-        self.pickle_data_loader_dicts(data)
+        # self.pickle_data_loader_dicts(data)
 
     def end(self, data):
         # THIS ORDER MATTERS: TB BUG?
@@ -150,19 +158,24 @@ class Experiment(torch.nn.Module):
     def log_hyperparameters(self, data):
         opt_hparams = self.get_optimizer_hparams()
         data_hparams = self.get_data_hparams(data)
-        reg_hparams = self.get_regularizer_hparams()
 
-        hparam_dict = {**opt_hparams, **data_hparams, **reg_hparams}
+        if self.regularizer is not None:
+            reg_hparams = self.get_regularizer_hparams()
+            hparam_dict = {**opt_hparams, **data_hparams, **reg_hparams}
+
+        else:
+            hparam_dict = {**opt_hparams, **data_hparams}
+
         metric_dict = self.get_hparam_metrics(data)
 
         self.writer.add_hparams(hparam_dict, metric_dict)
 
     def get_hparam_metrics(self, data):
         train_results = self.evaluate(data.train)
-        metric_dict = {"hparam/train_loss": train_results["L"]}
+        metric_dict = {"hparam/train_loss": train_results["total_loss"]}
         if data.val is not None:
             validation_results = self.evaluate(data.val)
-            metric_dict["hparam/val_loss"] = validation_results["L"]
+            metric_dict["hparam/val_loss"] = validation_results["total_loss"]
 
         return metric_dict
 
