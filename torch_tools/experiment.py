@@ -89,7 +89,7 @@ class Experiment(torch.nn.Module):
                     self.save_checkpoint(epoch=i)
 
         except KeyboardInterrupt:
-            self.end(data=data_loader)
+            print("Stopping and saving run at epoch {}".format(i))
 
         self.end(data=data_loader)
 
