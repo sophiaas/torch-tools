@@ -221,7 +221,7 @@ class Experiment(torch.nn.Module):
     def print_update(self, training_loss, validation_loss, epoch):
         print(
             "Epoch {}  ||  Training Loss: {:0.5f}  |  Validation Loss: {:0.5f}".format(
-                epoch, training_loss["L"], validation_loss["L"]
+                epoch, training_loss["total_loss"], validation_loss["total_loss"]
             )
         )
 
