@@ -35,7 +35,7 @@ class Experiment(torch.nn.Module):
         self.loss_function = None
 
     # Virtual Functions
-    def step(self, data, grad=True):
+    def step(self, data, epoch=None, grad=True):
         """
         The output of step() should be a dictionary containing losses to log.
         One of the keys should be "total_loss"
@@ -57,6 +57,7 @@ class Experiment(torch.nn.Module):
         raise NotImplementedError
 
     # CONVENIENCE WRAPPER
+    @torch.no_grad()
     def evaluate(self, data):
         results = self.step(data, grad=False)
         return results
@@ -220,7 +221,7 @@ class Experiment(torch.nn.Module):
     def print_update(self, training_loss, validation_loss, epoch):
         print(
             "Epoch {}  ||  Training Loss: {:0.5f}  |  Validation Loss: {:0.5f}".format(
-                epoch, training_loss["total_loss"], validation_loss["total_loss"]
+                epoch, training_loss["L"], validation_loss["L"]
             )
         )
 
