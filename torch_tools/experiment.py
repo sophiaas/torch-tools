@@ -33,6 +33,7 @@ class Experiment(torch.nn.Module):
         self.logdir = None  # remove? / make immutable?
         self.dataset_name = None  # remove? / make immutable?
         self.loss_function = None
+        self.epoch = 0
 
     # Virtual Functions
     def step(self, data, grad=True):
@@ -75,18 +76,19 @@ class Experiment(torch.nn.Module):
 
         try:
             for i in range(start_epoch, epochs + 1):
+                self.epoch = i
                 train_results = self.step(data_loader.train, grad=True)
-                self.log_step(epoch=i, results=train_results, step_type="train")
+                self.log_step(results=train_results, step_type="train")
 
                 if data_loader.val is not None:
                     validation_results = self.evaluate(data_loader.val)
-                    self.log_step(epoch=i, results=validation_results, step_type="val")
+                    self.log_step(results=validation_results, step_type="val")
 
                 if i % print_interval == 0 and print_status_updates == True:
-                    self.print_update(train_results, validation_results, epoch=i)
+                    self.print_update(train_results, validation_results)
 
                 if i % checkpoint_interval == 0:
-                    self.save_checkpoint(epoch=i)
+                    self.save_checkpoint()
 
         except KeyboardInterrupt:
             self.end(data=data_loader)
@@ -126,9 +128,6 @@ class Experiment(torch.nn.Module):
         except NotImplementedError:
             pass
 
-        self.pickle_attribute_dicts()
-        # self.pickle_data_loader_dicts(data)
-
     def end(self, data):
         # THIS ORDER MATTERS: TB BUG?
         try:
@@ -138,10 +137,10 @@ class Experiment(torch.nn.Module):
         self.log_hyperparameters(data)
 
     # TB LOGGING
-    def log_step(self, epoch, results, step_type):
+    def log_step(self, results, step_type):
         for (name, value) in results.items():
             self.log_scalar(
-                epoch=epoch,
+                epoch=self.epoch,
                 group="loss_reg_{}".format(step_type),
                 name=name,
                 value=value,
@@ -151,8 +150,8 @@ class Experiment(torch.nn.Module):
                     self.regularizer.__dict__, self.logdir, "regularizer" + "_dict"
                 )
 
-    def log_scalar(self, epoch, group, name, value):
-        self.writer.add_scalar("{}/{}".format(group, name), value, epoch)
+    def log_scalar(self, group, name, value):
+        self.writer.add_scalar("{}/{}".format(group, name), value, self.epoch)
 
     # TB HPARAMS
     def log_hyperparameters(self, data):
@@ -196,19 +195,6 @@ class Experiment(torch.nn.Module):
     def get_data_hparams(self, data):
         return {"bsize": data.batch_size}
 
-    def save_pickle(self, object, path, fname):
-        final_path = os.path.join(path, fname)
-        with open(final_path, "wb") as f:
-            pickle.dump(object, f)
-
-    def pickle_attribute_dicts(self):
-        self.save_pickle(self.model.__dict__, self.logdir, "model" + "_dict")
-        self.save_pickle(self.optimizer.__dict__, self.logdir, "optimizer" + "_dict")
-        if self.regularizer is not None:
-            self.save_pickle(
-                self.regularizer.__dict__, self.logdir, "regularizer" + "_dict"
-            )
-
     def pickle_data_loader_dicts(self, data_loader):
         self.save_pickle(data_loader.__dict__, self.logdir, "data_loader" + "_dict")
         self.save_pickle(
@@ -217,31 +203,16 @@ class Experiment(torch.nn.Module):
             "training_data" + "_dict",
         )
 
-    def print_update(self, training_loss, validation_loss, epoch):
+    def print_update(self, training_loss, validation_loss):
         print(
             "Epoch {}  ||  Training Loss: {:0.5f}  |  Validation Loss: {:0.5f}".format(
-                epoch, training_loss["total_loss"], validation_loss["total_loss"]
+                self.epoch, training_loss["total_loss"], validation_loss["total_loss"]
             )
         )
 
     # STATE MANAGEMENT
-    def save_checkpoint(self, epoch):
-        torch.save(
-            {
-                "epoch": epoch,
-                "model_state_dict": self.model.state_dict(),
-                "optimizer_state_dict": self.optimizer.state_dict(),
-            },
-            os.path.join(self.logdir, "checkpoints", "checkpoint_{}.pt".format(epoch)),
-        )
+    def save_checkpoint(self):
+        torch.save(self, os.path.join(self.logdir, "checkpoints", "checkpoint_{}.pt".format(self.epoch)))
 
-    def load_checkpoint(self, path, checkpoint):
-        state_dict = torch.load(
-            path + "checkpoints/checkpoint_{}.pt".format(checkpoint)
-        )
-        self.model.load_state_dict(state_dict["model_state_dict"])
-        self.optimizer.load_state_dict(state_dict["optimizer_state_dict"])
-
-    def resume(self, path, checkpoint, data_loader, epochs):
-        self.load_checkpoint(path, checkpoint)
+    def resume(self, data_loader, epochs):
         self.train(data_loader, epochs, start_epoch=checkpoint)
