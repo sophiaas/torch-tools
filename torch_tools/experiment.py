@@ -36,7 +36,7 @@ class Experiment(torch.nn.Module):
         self.epoch = 0
 
     # Virtual Functions
-    def step(self, data, grad=True):
+    def step(self, data, epoch=None, grad=True):
         """
         The output of step() should be a dictionary containing losses to log.
         One of the keys should be "total_loss"
@@ -58,6 +58,7 @@ class Experiment(torch.nn.Module):
         raise NotImplementedError
 
     # CONVENIENCE WRAPPER
+    @torch.no_grad()
     def evaluate(self, data):
         results = self.step(data, grad=False)
         return results
@@ -91,7 +92,7 @@ class Experiment(torch.nn.Module):
                     self.save_checkpoint()
 
         except KeyboardInterrupt:
-            self.end(data=data_loader)
+            print("Stopping and saving run at epoch {}".format(i))
 
         self.end(data=data_loader)
 
