@@ -141,15 +141,10 @@ class Experiment(torch.nn.Module):
     def log_step(self, results, step_type):
         for (name, value) in results.items():
             self.log_scalar(
-                epoch=self.epoch,
                 group="loss_reg_{}".format(step_type),
                 name=name,
                 value=value,
             )
-            if self.regularizer is not None:
-                generic.save_pickle(
-                    self.regularizer.__dict__, self.logdir, "regularizer" + "_dict"
-                )
 
     def log_scalar(self, group, name, value):
         self.writer.add_scalar("{}/{}".format(group, name), value, self.epoch)
