@@ -45,6 +45,8 @@ class TrainValLoader:
         self.batch_size = batch_size
         self.fraction_val = fraction_val
         self.seed = seed
+        self.num_workers = num_workers
+        self.dataset = type(dataset)
 
         if fraction_val > 0.0:
             dataset_size = len(dataset)
