@@ -44,10 +44,10 @@ class Experiment(torch.nn.Module):
         """
         raise NotImplementedError
 
-    def on_begin(self, data, writer):
+    def on_begin(self, data):
         raise NotImplementedError
 
-    def on_end(self, data, writer):
+    def on_end(self, data):
         raise NotImplementedError
 
     # CONVENIENCE WRAPPER
@@ -66,19 +66,17 @@ class Experiment(torch.nn.Module):
         checkpoint_interval=10,
         print_interval=1,
     ):
-        writer = self.begin(data=data_loader)
+        self.begin(data=data_loader)
 
         try:
             for i in range(start_epoch, epochs + 1):
                 self.epoch = i
                 train_results = self.step(data_loader.train, grad=True)
-                self.log_step(results=train_results, step_type="train", writer=writer)
+                self.log_step(results=train_results, step_type="train")
 
                 if data_loader.val is not None:
                     validation_results = self.evaluate(data_loader.val)
-                    self.log_step(
-                        results=validation_results, step_type="val", writer=writer
-                    )
+                    self.log_step(results=validation_results, step_type="val")
 
                 if i % print_interval == 0 and print_status_updates == True:
                     self.print_update(train_results, validation_results)
@@ -89,7 +87,7 @@ class Experiment(torch.nn.Module):
         except KeyboardInterrupt:
             print("Stopping and saving run at epoch {}".format(i))
 
-        self.end(data=data_loader, writer=writer)
+        self.end(data=data_loader)
 
     # LOGGING SETUP
     def create_logdir(self, data):
@@ -113,43 +111,39 @@ class Experiment(torch.nn.Module):
         self.logdir = logdir
 
     def begin(self, data):
-        try:
-            self.create_logdir(data=data)
-            self.save_data_params(data)
-            writer = SummaryWriter(self.logdir)
-        except:
-            raise Exception("Problem creating logging and/or checkpoint directory.")
+        # try:
+        self.create_logdir(data=data)
+        # self.save_data_params(data)
+        self.writer = SummaryWriter(self.logdir)
+
+        # except:
+        #     raise Exception("Problem creating logging and/or checkpoint directory.")
 
         try:
-            self.on_begin(data=data, writer=writer)
+            self.on_begin(data=data)
         except NotImplementedError:
             pass
 
-        return writer
-
-    def end(self, data, writer):
+    def end(self, data):
         # THIS ORDER MATTERS: TB BUG?
         try:
-            self.on_end(data=data, writer=writer)
+            self.on_end(data=data)
         except NotImplementedError:
             pass
-        self.log_hyperparameters(data, writer=writer)
+        self.log_hyperparameters(data)
 
     # TB LOGGING
-    def log_step(self, results, step_type, writer):
+    def log_step(self, results, step_type):
         for (name, value) in results.items():
             self.log_scalar(
-                group="loss_reg_{}".format(step_type),
-                name=name,
-                value=value,
-                writer=writer,
+                group="loss_reg_{}".format(step_type), name=name, value=value
             )
 
-    def log_scalar(self, group, name, value, writer):
-        writer.add_scalar("{}/{}".format(group, name), value, self.epoch)
+    def log_scalar(self, group, name, value):
+        self.writer.add_scalar("{}/{}".format(group, name), value, self.epoch)
 
     # TB HPARAMS
-    def log_hyperparameters(self, data, writer):
+    def log_hyperparameters(self, data):
         opt_hparams = self.get_optimizer_hparams()
         data_hparams = self.get_data_hparams(data)
 
@@ -162,7 +156,7 @@ class Experiment(torch.nn.Module):
 
         metric_dict = self.get_hparam_metrics(data)
 
-        writer.add_hparams(hparam_dict, metric_dict)
+        self.writer.add_hparams(hparam_dict, metric_dict)
 
     def get_hparam_metrics(self, data):
         train_results = self.evaluate(data.train)
