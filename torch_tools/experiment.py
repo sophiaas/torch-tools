@@ -111,13 +111,13 @@ class Experiment(torch.nn.Module):
         self.logdir = logdir
 
     def begin(self, data):
-        # try:
-        self.create_logdir(data=data)
-        # self.save_data_params(data)
-        self.writer = SummaryWriter(self.logdir)
+        try:
+            self.create_logdir(data=data)
+            self.save_data_params(data)
+            self.writer = SummaryWriter(self.logdir)
 
-        # except:
-        #     raise Exception("Problem creating logging and/or checkpoint directory.")
+        except:
+            raise Exception("Problem creating logging and/or checkpoint directory.")
 
         try:
             self.on_begin(data=data)
