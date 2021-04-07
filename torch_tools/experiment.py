@@ -33,7 +33,6 @@ class Experiment(torch.nn.Module):
         """
         The output of step() should be a dictionary containing losses to log.
         One of the keys should be "total_loss"
-
         Example:
                 loss_dict = {
                     "total_loss": L_mean,
@@ -44,10 +43,10 @@ class Experiment(torch.nn.Module):
         """
         raise NotImplementedError
 
-    def on_begin(self, data):
+    def on_begin(self, data, writer):
         raise NotImplementedError
 
-    def on_end(self, data):
+    def on_end(self, data, writer):
         raise NotImplementedError
 
     # CONVENIENCE WRAPPER
@@ -66,17 +65,19 @@ class Experiment(torch.nn.Module):
         checkpoint_interval=10,
         print_interval=1,
     ):
-        self.begin(data=data_loader)
+        writer = self.begin(data=data_loader)
 
         try:
             for i in range(start_epoch, epochs + 1):
                 self.epoch = i
                 train_results = self.step(data_loader.train, grad=True)
-                self.log_step(results=train_results, step_type="train")
+                self.log_step(results=train_results, step_type="train", writer=writer)
 
                 if data_loader.val is not None:
                     validation_results = self.evaluate(data_loader.val)
-                    self.log_step(results=validation_results, step_type="val")
+                    self.log_step(
+                        results=validation_results, step_type="val", writer=writer
+                    )
 
                 if i % print_interval == 0 and print_status_updates == True:
                     self.print_update(train_results, validation_results)
@@ -87,7 +88,7 @@ class Experiment(torch.nn.Module):
         except KeyboardInterrupt:
             print("Stopping and saving run at epoch {}".format(i))
 
-        self.end(data=data_loader)
+        self.end(data=data_loader, writer=writer)
 
     # LOGGING SETUP
     def create_logdir(self, data):
@@ -114,36 +115,40 @@ class Experiment(torch.nn.Module):
         try:
             self.create_logdir(data=data)
             self.save_data_params(data)
-            self.writer = SummaryWriter(self.logdir)
-
+            writer = SummaryWriter(self.logdir)
         except:
             raise Exception("Problem creating logging and/or checkpoint directory.")
 
         try:
-            self.on_begin(data=data)
+            self.on_begin(data=data, writer=writer)
         except NotImplementedError:
             pass
 
-    def end(self, data):
+        return writer
+
+    def end(self, data, writer):
         # THIS ORDER MATTERS: TB BUG?
         try:
-            self.on_end(data=data)
+            self.on_end(data=data, writer=writer)
         except NotImplementedError:
             pass
-        self.log_hyperparameters(data)
+        self.log_hyperparameters(data, writer=writer)
 
     # TB LOGGING
-    def log_step(self, results, step_type):
+    def log_step(self, results, step_type, writer):
         for (name, value) in results.items():
             self.log_scalar(
-                group="loss_reg_{}".format(step_type), name=name, value=value
+                group="loss_reg_{}".format(step_type),
+                name=name,
+                value=value,
+                writer=writer,
             )
 
-    def log_scalar(self, group, name, value):
-        self.writer.add_scalar("{}/{}".format(group, name), value, self.epoch)
+    def log_scalar(self, group, name, value, writer):
+        writer.add_scalar("{}/{}".format(group, name), value, self.epoch)
 
     # TB HPARAMS
-    def log_hyperparameters(self, data):
+    def log_hyperparameters(self, data, writer):
         opt_hparams = self.get_optimizer_hparams()
         data_hparams = self.get_data_hparams(data)
 
@@ -156,7 +161,7 @@ class Experiment(torch.nn.Module):
 
         metric_dict = self.get_hparam_metrics(data)
 
-        self.writer.add_hparams(hparam_dict, metric_dict)
+        writer.add_hparams(hparam_dict, metric_dict)
 
     def get_hparam_metrics(self, data):
         train_results = self.evaluate(data.train)
