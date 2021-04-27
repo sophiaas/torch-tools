@@ -14,7 +14,9 @@ class Experiment(torch.nn.Module):
         experiment_name,
         model,
         optimizer,
-        regularizer,
+        loss_function,
+        regularizer=None,
+        normalizer=None,
         device="cuda",
     ):
         super().__init__()
@@ -22,33 +24,74 @@ class Experiment(torch.nn.Module):
         self.model = model
         self.optimizer = optimizer
         self.regularizer = regularizer
+        self.normalizer = normalizer
         self.device = device
-        self.logdir = None  # remove? / make immutable?
-        self.dataset_name = None  # remove? / make immutable?
-        self.loss_function = None
+        self.loss_function = loss_function
         self.epoch = 0
-
-    # Virtual Functions
-    def step(self, data, epoch=None, grad=True):
-        """
-        The output of step() should be a dictionary containing losses to log.
-        One of the keys should be "total_loss"
-
-        Example:
-                loss_dict = {
-                    "total_loss": L_mean,
-                    "representation_loss": L_rep_mean,
-                    "reconstruction_loss": L_rec_mean,
-                    "regularization_loss": L_reg_mean,
-                }
-        """
-        raise NotImplementedError
 
     def on_begin(self, data, writer):
         raise NotImplementedError
 
     def on_end(self, data, writer):
         raise NotImplementedError
+        
+    def reset_accumulator(self):
+        d =  {'total_loss': 0}
+        
+        if self.regularizer is not None:
+            d['regularization_loss'] = 0
+            
+        return d
+        
+    def forward(self, x):
+        out = self.model.forward(x)
+        return out
+
+    def accumulate_loss(self, x, out, labels, accumulator):
+        
+        L = self.loss_function(out, labels)
+        accumulator['total_loss'] += L
+
+        if self.regularizer is not None:
+            L_reg = self.regularizer(self.model.state_dict())
+            L += L_reg
+            accumulator['regularization_loss'] += L_reg
+            
+        return L, accumulator
+    
+    def step(self, data, grad=True):
+        
+        accumulator = self.reset_accumulator()
+
+        for i, (x, labels) in enumerate(data):
+            x = x.to(self.device)
+            labels = labels.to(self.device)
+
+            if grad:
+                self.optimizer.zero_grad()
+                out = self.forward(x)
+            
+            else:
+                with torch.no_grad():
+                    out = self.forward(x)
+            
+            L, accumulator = self.accumulate_loss(x, out, labels, accumulator)
+
+            if grad:
+                L.backward()
+                self.optimizer.step()
+                
+            if self.normalizer is not None:
+                self.normalizer(self.model.state_dict())
+            
+        accumulator = self.average_loss(accumulator, len(data))
+
+        return accumulator
+    
+    def average_loss(self, accumulator, n_datapoints):
+        for key in accumulator.keys():
+            accumulator[key] /= n_datapoints
+        return accumulator
 
     # CONVENIENCE WRAPPER
     @torch.no_grad()
@@ -103,7 +146,6 @@ class Experiment(torch.nn.Module):
             "b_size: {}".format(data.batch_size),
             "lr: {}__".format(self.optimizer.param_groups[0]["lr"]),
         )
-
         os.makedirs(logdir, exist_ok=True)
 
         logdir = os.path.join(logdir, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
