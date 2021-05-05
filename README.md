@@ -1,3 +1,3 @@
-# torch-tools
+# torch tools
 
-Infrastructre for running machine learning experiments in PyTorch.
+Modular infrastructure for running machine learning experiments in PyTorch.
