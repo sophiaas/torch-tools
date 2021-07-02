@@ -28,6 +28,7 @@ class Experiment(torch.nn.Module):
         self.device = device
         self.loss_function = loss_function
         self.epoch = 0
+#         self.logdir = None
 
     def on_begin(self, data, writer):
         raise NotImplementedError
@@ -156,7 +157,8 @@ class Experiment(torch.nn.Module):
 
     def begin(self, data):
         try:
-            self.create_logdir(data=data)
+            if self.logdir is None:
+                self.create_logdir(data=data)
             self.save_data_params(data)
             writer = SummaryWriter(self.logdir)
         except:
@@ -266,4 +268,4 @@ class Experiment(torch.nn.Module):
         )
 
     def resume(self, data_loader, epochs):
-        self.train(data_loader, epochs, start_epoch=checkpoint)
+        self.train(data_loader, epochs, start_epoch=self.epoch)
