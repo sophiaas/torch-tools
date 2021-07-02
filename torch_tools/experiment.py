@@ -113,7 +113,7 @@ class Experiment(torch.nn.Module):
         writer = self.begin(data=data_loader)
 
         try:
-            for i in range(start_epoch, epochs + 1):
+            for i in range(start_epoch, start_epoch + epochs + 1):
                 self.epoch = i
                 train_results = self.step(data_loader.train, grad=True)
                 self.log_step(results=train_results, step_type="train", writer=writer)
