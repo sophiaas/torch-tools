@@ -37,23 +37,25 @@ class DatasetWrapper(Dataset):
 
 
 class TrainValLoader:
-    def __init__(self, dataset, batch_size, fraction_val=0.2, seed=0, num_workers=0):
-        if fraction_val > 1.0 or fraction_val < 0.0:
-            raise ValueError("fraction_val must be a fraction between 0 and 1")
+    def __init__(self, batch_size, fraction_val=0.2, num_workers=0, seed=0):
+        assert (
+            fraction_val <= 1.0 and fraction_val >= 0.0
+        ), "fraction_val must be a fraction between 0 and 1"
 
-        self.name = dataset.name
+        np.random.seed(seed)
+
         self.batch_size = batch_size
         self.fraction_val = fraction_val
         self.seed = seed
         self.num_workers = num_workers
-        self.dataset = type(dataset)
 
-        if fraction_val > 0.0:
+    def load(self, dataset):
+
+        if self.fraction_val > 0.0:
             dataset_size = len(dataset)
             indices = list(range(dataset_size))
-            split = int(np.floor(fraction_val * len(dataset)))
+            split = int(np.floor(self.fraction_val * len(dataset)))
 
-            np.random.seed(seed)
             np.random.shuffle(indices)
 
             train_indices, val_indices = indices[split:], indices[:split]
@@ -63,9 +65,9 @@ class TrainValLoader:
 
             self.val = torch.utils.data.DataLoader(
                 dataset,
-                batch_size=batch_size,
+                batch_size=self.batch_size,
                 sampler=valid_sampler,
-                num_workers=num_workers,
+                num_workers=self.num_workers,
             )
 
         else:
@@ -75,7 +77,7 @@ class TrainValLoader:
 
         self.train = torch.utils.data.DataLoader(
             dataset,
-            batch_size=batch_size,
+            batch_size=self.batch_size,
             sampler=train_sampler,
-            num_workers=num_workers,
+            num_workers=self.num_workers,
         )
