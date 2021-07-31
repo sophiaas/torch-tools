@@ -22,3 +22,6 @@ def get_default_args(func):
         for k, v in signature.parameters.items()
         if v.default is not inspect.Parameter.empty
     }
+
+def get_variables(variable_dict, variables):
+    return [variable_dict[v] for v in variables]

@@ -1,4 +1,4 @@
-from torch_tools.generic import get_default_args
+from torch_tools.utils import get_default_args
 
 
 class Config(dict):

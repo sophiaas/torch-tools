@@ -47,6 +47,8 @@ class Trainer(torch.nn.Module):
                 with torch.no_grad():
                     out = self.model.forward(x)
 
+            L, accumulator = self.accumulate_loss(x, out, labels, accumulator)
+
             if grad:
                 L.backward()
                 self.optimizer.step()
@@ -54,11 +56,11 @@ class Trainer(torch.nn.Module):
             if self.normalizer is not None:
                 self.normalizer(self.model.state_dict())
 
-            L, accumulator = self.accumulate_loss(x, out, labels, accumulator)
-
         accumulator = self.average_loss(accumulator, len(data_loader))
+        
+        
 
-        return accumulator
+        return (losses, other object) #accumulator,  
 
     def train(
         self,
@@ -91,8 +93,8 @@ class Trainer(torch.nn.Module):
                         n_examples=self.n_examples,
                     )
 
-                if i % print_interval == 0 and print_status_updates == True:
-                    self.print_update(train_results, validation_results)
+                    if i % print_interval == 0 and print_status_updates == True:
+                        self.print_update(train_results, validation_results)
 
                 self.logger.save_checkpoint(self.model, self.epoch)
 
@@ -111,6 +113,18 @@ class Trainer(torch.nn.Module):
         results = self.step(data_loader, grad=False)
         return results
 
+    def print_update(self, training_loss, validation_loss):
+        print(
+            "Epoch {}  ||  N Examples {} || Training Loss: {:0.5f}  |  Validation Loss: {:0.5f}".format(
+                self.epoch,
+                self.n_examples,
+                training_loss["total_loss"],
+                validation_loss["total_loss"],
+            )
+        )
+
+# below: all accumulator, all in step
+    
     def reset_accumulator(self):
         d = {"total_loss": 0}
 
@@ -139,12 +153,3 @@ class Trainer(torch.nn.Module):
             L_reg = 0.0
         return L_reg, accumulator
 
-    def print_update(self, training_loss, validation_loss):
-        print(
-            "Epoch {}  ||  N Examples {} || Training Loss: {:0.5f}  |  Validation Loss: {:0.5f}".format(
-                self.epoch,
-                self.n_examples,
-                training_loss["total_loss"],
-                validation_loss["total_loss"],
-            )
-        )
