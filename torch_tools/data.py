@@ -5,6 +5,7 @@ import numpy as np
 
 
 class Base(Dataset):
+    '''Not in use: August 3, 2021'''
     def __init__(self):
         self.name = None
         self.dim = None
@@ -17,6 +18,7 @@ class Base(Dataset):
 
 
 class DatasetWrapper(Dataset):
+    '''Not in use: August 3, 2021'''
     def __init__(self, X, Y=None):
         self.data = X
         self.name = X.__class__.__name__
@@ -36,7 +38,7 @@ class DatasetWrapper(Dataset):
         return len(self.data)
 
 
-class TrainValLoader:
+class TrainValLoader(torch.nn.Module):
     def __init__(self, batch_size, fraction_val=0.2, num_workers=0, seed=0):
         assert (
             fraction_val <= 1.0 and fraction_val >= 0.0
@@ -81,3 +83,7 @@ class TrainValLoader:
             sampler=train_sampler,
             num_workers=self.num_workers,
         )
+        
+#     def to(self, device):
+#         self.train.dataset.data = self.train.dataset.data.to(device)
+#         self.val.dataset.data = self.val.dataset.data.to(device)
