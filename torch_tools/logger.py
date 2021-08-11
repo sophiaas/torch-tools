@@ -16,14 +16,20 @@ class WBLogger:
         watch_interval is in number of batches
         log_interval is in number of epochs
         """
-        # TODO: plotter object
-        wandb.init(config=config, project=project, entity=entity)
+        self.project = project
+        self.entity = entity
+        self.run = wandb.init(config=config, project=self.project, entity=self.entity, resume=True, reinit=True)
         self.watch_interval = watch_interval
         self.log_interval = log_interval
         self.plotter = plotter
+        self.is_finished = False
 
     def begin(self, model, data_loader):
+        if self.is_finished:
+            run_id = self.run.id
+            self.run = wandb.init(id = run_id, project=self.project, entity=self.entity, resume=True, reinit=True)
         wandb.watch(model, log_freq=self.log_interval)
+        self.is_finished = False
         # os.makedirs(os.path.join(wandb.run.dir, "checkpoints"))
 
     def format_dict(self, results, step_type, epoch, n_examples=None):
@@ -54,6 +60,7 @@ class WBLogger:
 
     def end(self, model, data_loader):
         wandb.finish()
+        self.is_finished = True
 
 
 class TBLogger:

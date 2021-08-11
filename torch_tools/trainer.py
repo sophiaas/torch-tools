@@ -3,7 +3,7 @@ import os
 import pickle
 import torch
 from torch.nn import ParameterDict
-import torch_tools.generic as generic
+import torch_tools.utils as utils
 from inspect import signature
 
 
@@ -58,9 +58,9 @@ class Trainer(torch.nn.Module):
 
         accumulator = self.average_loss(accumulator, len(data_loader))
         
-        
+        return accumulator
 
-        return (losses, other object) #accumulator,  
+#         return (losses, other object) #,  
 
     def train(
         self,
@@ -107,6 +107,7 @@ class Trainer(torch.nn.Module):
 
     def resume(self, data_loader, epochs):
         self.train(data_loader, epochs, start_epoch=self.epoch)
+        
 
     @torch.no_grad()
     def evaluate(self, data_loader):
@@ -136,13 +137,13 @@ class Trainer(torch.nn.Module):
     def accumulate_loss(self, x, out, labels, accumulator):
         L = self.loss(out, labels)
         accumulator["total_loss"] += L
-        L_reg, accumulator = self.get_regularization_loss(x, out, accumulator)
+        L_reg, accumulator = self.get_regularizer_loss(x, out, accumulator)
         L += L_reg
         return L, accumulator
 
-    def average_loss(self, accumulator, n_data_loaderpoints):
+    def average_loss(self, accumulator, n_data_points):
         for key in accumulator.keys():
-            accumulator[key] /= n_datapoints
+            accumulator[key] /= n_data_points
         return accumulator
 
     def get_regularizer_loss(self, x, out, accumulator):
