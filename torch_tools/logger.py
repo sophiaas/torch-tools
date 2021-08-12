@@ -43,7 +43,7 @@ class WBLogger:
                 reinit=True,
             )
             self.is_finished = False
-        wandb.watch(model, log_freq=self.log_interval)
+        wandb.watch(model, log_freq=self.watch_interval)
 
     def format_dict(self, results, step_type, epoch, n_examples=None):
         log_dict = {}
@@ -55,7 +55,7 @@ class WBLogger:
         return log_dict
 
     def log_step(self, log_dict, variable_dict, step_type, epoch, n_examples=None):
-        if epoch % self.log_interval == 0:
+        if epoch % (self.log_interval-1) == 0:
             log_dict_formatted = self.format_dict(
                 log_dict, step_type, epoch, n_examples
             )
@@ -74,17 +74,11 @@ class WBLogger:
         # )
 
     def end(self, variable_dict):
-        data_loader = variable_dict["data_loader"]
-        train_inds = data_loader.train.sampler.indices
-        train_data = data_loader.train.dataset.data[train_inds]
-        val_inds = data_loader.val.sampler.indices
-        val_data = data_loader.val.dataset.data[val_inds]
-
-        variable_dict = {
-            "model": variable_dict["model"],
-            "train_data": train_data,
-            "val_data": val_data,
-        }
+#         data_loader = variable_dict["data_loader"]
+#         train_inds = data_loader.train.sampler.indices
+#         train_data = data_loader.train.dataset.data[train_inds]
+#         val_inds = data_loader.val.sampler.indices
+#         val_data = data_loader.val.dataset.data[val_inds]
 
         if self.end_plotter is not None:
             plots = self.end_plotter.plot(variable_dict)
