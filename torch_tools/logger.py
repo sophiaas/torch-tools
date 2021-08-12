@@ -46,10 +46,10 @@ class WBLogger:
             formatted_results = self.format_dict(results, step_type, epoch, n_examples)
             wandb.log(formatted_results)
 
-            if self.plotter is not None:
-                plots = self.plotter()
-                formatted_plots = self.format_dict(plots)
-                wandb.log(formatted_plots)
+#             if self.plotter is not None:
+#                 plots = self.plotter()
+#                 formatted_plots = self.format_dict(plots)
+#                 wandb.log(formatted_plots)
 
     def save_checkpoint(self, model, iter):
         return
@@ -59,6 +59,14 @@ class WBLogger:
         # )
 
     def end(self, model, data_loader):
+        train_inds = data_loader.train.sampler.indices
+        train_data = data_loader.train.dataset.data[train_inds]
+        val_inds = data_loader.val.sampler.indices
+        val_data = data_loader.val.dataset.data[val_inds]
+        variable_dict = {'model': model, 'train_data': train_data, 'val_data': val_data}
+        
+        plots = self.plotter.plot(variable_dict)
+        wandb.log(plots)
         wandb.finish()
         self.is_finished = True
 
