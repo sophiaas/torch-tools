@@ -32,10 +32,31 @@ class Trainer(torch.nn.Module):
         self.optimizer = optimizer_config.build()
 
     def step(self, data_loader, grad=True):
-
-        accumulator = self.reset_accumulator()
-
+        '''Compute a single step of training.
+        
+        This example is a minimal implementation of the `step` function
+        for a classification problem with a simple regularization on 
+        the model parameters.
+        
+        Parameters
+        ----------
+        data_loader : torch.utils.data.dataloader.DataLoader
+        grad : boolean
+            required argument to switch between training and evaluation
+        
+        Returns
+        -------
+        results_dict : dictionary with losses to be logged by the trainer/logger
+            format - {'total_loss': total_loss, 'l1_penalty': l1_penalty, ...}
+            Your dictionary must contain a key called `total_loss` 
+            
+        '''
+        results_dict = {'loss': 0, 'reg_loss': 0, 'total_loss': 0}
         for i, (x, labels) in enumerate(data_loader):
+            loss = 0
+            reg_loss = 0
+            total_loss = 0
+            
             x = x.to(self.device)
             labels = labels.to(self.device)
 
@@ -47,20 +68,30 @@ class Trainer(torch.nn.Module):
                 with torch.no_grad():
                     out = self.model.forward(x)
 
-            L, accumulator = self.accumulate_loss(x, out, labels, accumulator)
+            # Compute loss term without regularization terms (e.g. classification loss)
+            loss += self.loss(out, labels)
+            results_dict['loss'] += loss
+            total_loss += loss
+
+            # Compute regularization penalty terms (e.g. sparsity, l2 norm, etc.)
+            if self.regularizer:
+                variable_dict = {'x': x, 'out': out, 'params': self.model.state_dict()}
+                reg_loss += self.regularizer(variable_dict)
+                results_dict['reg_loss'] += reg_loss
+                total_loss += reg_loss
 
             if grad:
-                L.backward()
+                total_loss.backward()
                 self.optimizer.step()
+            
+            results_dict['total_loss'] += total_loss
+            
+        # Normalize loss terms for the number of samples/batches in the epoch (optional)
+        n_samples = len(data_loader)
+        for key in results_dict.keys():
+            results_dict[key] /= n_samples
 
-            if self.normalizer is not None:
-                self.normalizer(self.model.state_dict())
-
-        accumulator = self.average_loss(accumulator, len(data_loader))
-        
-        return accumulator
-
-#         return (losses, other object) #,  
+        return results_dict
 
     def train(
         self,
@@ -82,9 +113,8 @@ class Trainer(torch.nn.Module):
                     epoch=self.epoch,
                     n_examples=self.n_examples,
                 )
-
+                
                 if data_loader.val is not None:
-
                     validation_results = self.evaluate(data_loader.val)
                     self.logger.log_step(
                         results=validation_results,
@@ -93,8 +123,11 @@ class Trainer(torch.nn.Module):
                         n_examples=self.n_examples,
                     )
 
-                    if i % print_interval == 0 and print_status_updates == True:
+                if i % print_interval == 0 and print_status_updates == True:
+                    if data_loader.val is not None:
                         self.print_update(train_results, validation_results)
+                    else:
+                        self.print_update(train_results)
 
                 self.logger.save_checkpoint(self.model, self.epoch)
 
@@ -114,43 +147,45 @@ class Trainer(torch.nn.Module):
         results = self.step(data_loader, grad=False)
         return results
 
-    def print_update(self, training_loss, validation_loss):
-        print(
-            "Epoch {}  ||  N Examples {} || Training Loss: {:0.5f}  |  Validation Loss: {:0.5f}".format(
-                self.epoch,
-                self.n_examples,
-                training_loss["total_loss"],
-                validation_loss["total_loss"],
-            )
+    def print_update(self, result_dict_train, result_dict_val = None):
+
+        update_string = 'Epoch {} ||  N Examples {} || Train Total Loss {:0.5f}'.format(
+            self.epoch,
+            self.n_examples,
+            result_dict_train["total_loss"]
         )
+        if result_dict_val:
+            update_string += ' || Validation Total Loss {:0.5f}'.format(result_dict_val["total_loss"])
+        print(update_string)
 
-# below: all accumulator, all in step
+
+# # below: all accumulator, all in step
     
-    def reset_accumulator(self):
-        d = {"total_loss": 0}
+#     def reset_accumulator(self):
+#         d = {"total_loss": 0}
 
-        if self.regularizer is not None:
-            d["regularization_loss"] = 0
+#         if self.regularizer is not None:
+#             d["regularization_loss"] = 0
 
-        return d
+#         return d
 
-    def accumulate_loss(self, x, out, labels, accumulator):
-        L = self.loss(out, labels)
-        accumulator["total_loss"] += L
-        L_reg, accumulator = self.get_regularizer_loss(x, out, accumulator)
-        L += L_reg
-        return L, accumulator
+#     def accumulate_loss(self, x, out, labels, accumulator):
+#         L = self.loss(out, labels)
+#         accumulator["total_loss"] += L
+#         L_reg, accumulator = self.get_regularizer_loss(x, out, accumulator)
+#         L += L_reg
+#         return L, accumulator
 
-    def average_loss(self, accumulator, n_data_points):
-        for key in accumulator.keys():
-            accumulator[key] /= n_data_points
-        return accumulator
+#     def average_loss(self, accumulator, n_data_points):
+#         for key in accumulator.keys():
+#             accumulator[key] /= n_data_points
+#         return accumulator
 
-    def get_regularizer_loss(self, x, out, accumulator):
-        if self.regularizer is not None:
-            L_reg = self.regularizer(self.model.state_dict())
-            accumulator["regularization_loss"] += L_reg
-        else:
-            L_reg = 0.0
-        return L_reg, accumulator
+#     def get_regularizer_loss(self, x, out, accumulator):
+#         if self.regularizer is not None:
+#             L_reg = self.regularizer(self.model.state_dict())
+#             accumulator["regularization_loss"] += L_reg
+#         else:
+#             L_reg = 0.0
+#         return L_reg, accumulator
 
