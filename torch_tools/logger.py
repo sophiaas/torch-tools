@@ -10,7 +10,8 @@ class WBLogger:
         entity=None,
         watch_interval=1000,
         log_interval=10,
-        plotter=None,
+        step_plotter=None,
+        end_plotter=None,
     ):
         """
         watch_interval is in number of batches
@@ -18,19 +19,31 @@ class WBLogger:
         """
         self.project = project
         self.entity = entity
-        self.run = wandb.init(config=config, project=self.project, entity=self.entity, resume=True, reinit=True)
+        self.run = wandb.init(
+            config=config,
+            project=self.project,
+            entity=self.entity,
+            resume=True,
+            reinit=True,
+        )
         self.watch_interval = watch_interval
         self.log_interval = log_interval
-        self.plotter = plotter
+        self.step_plotter = step_plotter
+        self.end_plotter = end_plotter
         self.is_finished = False
 
     def begin(self, model, data_loader):
         if self.is_finished:
             run_id = self.run.id
-            self.run = wandb.init(id = run_id, project=self.project, entity=self.entity, resume=True, reinit=True)
+            self.run = wandb.init(
+                id=run_id,
+                project=self.project,
+                entity=self.entity,
+                resume=True,
+                reinit=True,
+            )
+            self.is_finished = False
         wandb.watch(model, log_freq=self.log_interval)
-        self.is_finished = False
-        # os.makedirs(os.path.join(wandb.run.dir, "checkpoints"))
 
     def format_dict(self, results, step_type, epoch, n_examples=None):
         log_dict = {}
@@ -41,15 +54,17 @@ class WBLogger:
             log_dict["n_examples"] = n_examples
         return log_dict
 
-    def log_step(self, results, step_type, epoch, n_examples=None):
+    def log_step(self, log_dict, variable_dict, step_type, epoch, n_examples=None):
         if epoch % self.log_interval == 0:
-            formatted_results = self.format_dict(results, step_type, epoch, n_examples)
-            wandb.log(formatted_results)
+            log_dict_formatted = self.format_dict(
+                log_dict, step_type, epoch, n_examples
+            )
+            wandb.log(log_dict_formatted)
 
-#             if self.plotter is not None:
-#                 plots = self.plotter()
-#                 formatted_plots = self.format_dict(plots)
-#                 wandb.log(formatted_plots)
+            if self.step_plotter is not None:
+                plots = self.step_plotter.plot(variable_dict)
+                plots_formatted = self.format_dict(plots, step_type, epoch, n_examples)
+                wandb.log(plots_formatted)
 
     def save_checkpoint(self, model, iter):
         return
@@ -58,15 +73,23 @@ class WBLogger:
         #     os.path.join(wandb.run.dir, "checkpoints", "checkpoint_{}.pt".format(iter)),
         # )
 
-    def end(self, model, data_loader):
+    def end(self, variable_dict):
+        data_loader = variable_dict["data_loader"]
         train_inds = data_loader.train.sampler.indices
         train_data = data_loader.train.dataset.data[train_inds]
         val_inds = data_loader.val.sampler.indices
         val_data = data_loader.val.dataset.data[val_inds]
-        variable_dict = {'model': model, 'train_data': train_data, 'val_data': val_data}
-        
-        plots = self.plotter.plot(variable_dict)
-        wandb.log(plots)
+
+        variable_dict = {
+            "model": variable_dict["model"],
+            "train_data": train_data,
+            "val_data": val_data,
+        }
+
+        if self.end_plotter is not None:
+            plots = self.end_plotter.plot(variable_dict)
+            wandb.log(plots)
+
         wandb.finish()
         self.is_finished = True
 

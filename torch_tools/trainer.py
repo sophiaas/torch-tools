@@ -32,31 +32,31 @@ class Trainer(torch.nn.Module):
         self.optimizer = optimizer_config.build()
 
     def step(self, data_loader, grad=True):
-        '''Compute a single step of training.
-        
+        """Compute a single step of training.
+
         This example is a minimal implementation of the `step` function
-        for a classification problem with a simple regularization on 
+        for a classification problem with a simple regularization on
         the model parameters.
-        
+
         Parameters
         ----------
         data_loader : torch.utils.data.dataloader.DataLoader
         grad : boolean
             required argument to switch between training and evaluation
-        
+
         Returns
         -------
-        results_dict : dictionary with losses to be logged by the trainer/logger
+        log_dict : dictionary with losses to be logged by the trainer/logger
             format - {'total_loss': total_loss, 'l1_penalty': l1_penalty, ...}
-            Your dictionary must contain a key called `total_loss` 
-            
-        '''
-        results_dict = {'loss': 0, 'reg_loss': 0, 'total_loss': 0}
+            Your dictionary must contain a key called `total_loss`
+
+        """
+        log_dict = {"loss": 0, "reg_loss": 0, "total_loss": 0}
         for i, (x, labels) in enumerate(data_loader):
             loss = 0
             reg_loss = 0
             total_loss = 0
-            
+
             x = x.to(self.device)
             labels = labels.to(self.device)
 
@@ -70,28 +70,34 @@ class Trainer(torch.nn.Module):
 
             # Compute loss term without regularization terms (e.g. classification loss)
             loss += self.loss(out, labels)
-            results_dict['loss'] += loss
+            log_dict["loss"] += loss
             total_loss += loss
 
             # Compute regularization penalty terms (e.g. sparsity, l2 norm, etc.)
             if self.regularizer:
-                variable_dict = {'x': x, 'out': out, 'params': self.model.state_dict()}
-                reg_loss += self.regularizer(variable_dict)
-                results_dict['reg_loss'] += reg_loss
+                reg_variable_dict = {
+                    "x": x,
+                    "out": out,
+                    "params": self.model.state_dict(),
+                }
+                reg_loss += self.regularizer(reg_variable_dict)
+                log_dict["reg_loss"] += reg_loss
                 total_loss += reg_loss
 
             if grad:
                 total_loss.backward()
                 self.optimizer.step()
-            
-            results_dict['total_loss'] += total_loss
-            
+
+            log_dict["total_loss"] += total_loss
+
         # Normalize loss terms for the number of samples/batches in the epoch (optional)
         n_samples = len(data_loader)
-        for key in results_dict.keys():
-            results_dict[key] /= n_samples
+        for key in log_dict.keys():
+            log_dict[key] /= n_samples
 
-        return results_dict
+        plot_variable_dict = {"model": self.model}
+
+        return log_dict, plot_variable_dict
 
     def train(
         self,
@@ -106,18 +112,22 @@ class Trainer(torch.nn.Module):
         try:
             for i in range(start_epoch, start_epoch + epochs + 1):
                 self.epoch = i
-                train_results = self.step(data_loader.train, grad=True)
+                log_dict, plot_variable_dict = self.step(data_loader.train, grad=True)
                 self.logger.log_step(
-                    results=train_results,
+                    log_dict=log_dict,
+                    variable_dict=plot_variable_dict,
                     step_type="train",
                     epoch=self.epoch,
                     n_examples=self.n_examples,
                 )
-                
+
                 if data_loader.val is not None:
-                    validation_results = self.evaluate(data_loader.val)
+                    val_log_dict, val_plot_variable_dict = self.evaluate(
+                        data_loader.val
+                    )
                     self.logger.log_step(
-                        results=validation_results,
+                        log_dict=val_log_dict,
+                        variable_dict=val_plot_variable_dict,
                         step_type="val",
                         epoch=self.epoch,
                         n_examples=self.n_examples,
@@ -125,9 +135,9 @@ class Trainer(torch.nn.Module):
 
                 if i % print_interval == 0 and print_status_updates == True:
                     if data_loader.val is not None:
-                        self.print_update(train_results, validation_results)
+                        self.print_update(log_dict, val_log_dict)
                     else:
-                        self.print_update(train_results)
+                        self.print_update(log_dict)
 
                 self.logger.save_checkpoint(self.model, self.epoch)
 
@@ -135,32 +145,31 @@ class Trainer(torch.nn.Module):
 
         except KeyboardInterrupt:
             print("Stopping and saving run at epoch {}".format(i))
-
-        self.logger.end(self.model, data_loader)
+        end_dict = {"model": self.model, "data_loader": data_loader}
+        self.logger.end(end_dict)
 
     def resume(self, data_loader, epochs):
         self.train(data_loader, epochs, start_epoch=self.epoch)
-        
 
     @torch.no_grad()
     def evaluate(self, data_loader):
         results = self.step(data_loader, grad=False)
         return results
 
-    def print_update(self, result_dict_train, result_dict_val = None):
+    def print_update(self, result_dict_train, result_dict_val=None):
 
-        update_string = 'Epoch {} ||  N Examples {} || Train Total Loss {:0.5f}'.format(
-            self.epoch,
-            self.n_examples,
-            result_dict_train["total_loss"]
+        update_string = "Epoch {} ||  N Examples {} || Train Total Loss {:0.5f}".format(
+            self.epoch, self.n_examples, result_dict_train["total_loss"]
         )
         if result_dict_val:
-            update_string += ' || Validation Total Loss {:0.5f}'.format(result_dict_val["total_loss"])
+            update_string += " || Validation Total Loss {:0.5f}".format(
+                result_dict_val["total_loss"]
+            )
         print(update_string)
 
 
 # # below: all accumulator, all in step
-    
+
 #     def reset_accumulator(self):
 #         d = {"total_loss": 0}
 
@@ -188,4 +197,3 @@ class Trainer(torch.nn.Module):
 #         else:
 #             L_reg = 0.0
 #         return L_reg, accumulator
-
