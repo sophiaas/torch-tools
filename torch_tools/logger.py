@@ -9,7 +9,8 @@ class WBLogger:
         project=None,
         entity=None,
         watch_interval=1000,
-        log_interval=10,
+        log_interval=1,
+        plot_interval=100,
         step_plotter=None,
         end_plotter=None,
     ):
@@ -23,11 +24,12 @@ class WBLogger:
             config=config,
             project=self.project,
             entity=self.entity,
-            resume=True,
+            resume="allow",
             reinit=True,
         )
         self.watch_interval = watch_interval
         self.log_interval = log_interval
+        self.plot_interval = plot_interval
         self.step_plotter = step_plotter
         self.end_plotter = end_plotter
         self.is_finished = False
@@ -39,47 +41,36 @@ class WBLogger:
                 id=run_id,
                 project=self.project,
                 entity=self.entity,
-                resume=True,
+                resume="allow",
                 reinit=True,
             )
             self.is_finished = False
-        wandb.watch(model, log_freq=self.watch_interval)
+        wandb.watch(model, log_freq=self.watch_interval, log_graph=True)
 
-    def format_dict(self, results, step_type, epoch, n_examples=None):
-        log_dict = {}
-        for k, v in results.items():
-            log_dict["{}_{}".format(step_type, k)] = v
-        log_dict["epoch"] = epoch
-        if n_examples is not None:
-            log_dict["n_examples"] = n_examples
-        return log_dict
+    def log_step(self, log_dict, variable_dict, epoch, val_log_dict=None, n_examples=None):
+        full_log_dict = {}
+        if epoch % self.log_interval == 0:
+            if val_log_dict is not None:
+                for k in log_dict:
+                    full_log_dict['train_'+k] = log_dict[k]
+                    full_log_dict['val_'+k] = val_log_dict[k]
+            else:
+                full_log_dict = log_dict
+                
+            full_log_dict["epoch"] = epoch
+            if n_examples is not None:
+                full_log_dict["n_examples"] = n_examples
 
-    def log_step(self, log_dict, variable_dict, step_type, epoch, n_examples=None):
-        if epoch % (self.log_interval-1) == 0:
-            log_dict_formatted = self.format_dict(
-                log_dict, step_type, epoch, n_examples
-            )
-            wandb.log(log_dict_formatted)
-
-            if self.step_plotter is not None:
+            if self.step_plotter is not None and variable_dict is not None and (epoch % self.plot_interval == 0):
                 plots = self.step_plotter.plot(variable_dict)
-                plots_formatted = self.format_dict(plots, step_type, epoch, n_examples)
-                wandb.log(plots_formatted)
+                full_log_dict.update(plots)
+
+            wandb.log(full_log_dict)
 
     def save_checkpoint(self, model, iter):
         return
-        # torch.save(
-        #     model,
-        #     os.path.join(wandb.run.dir, "checkpoints", "checkpoint_{}.pt".format(iter)),
-        # )
 
     def end(self, variable_dict):
-#         data_loader = variable_dict["data_loader"]
-#         train_inds = data_loader.train.sampler.indices
-#         train_data = data_loader.train.dataset.data[train_inds]
-#         val_inds = data_loader.val.sampler.indices
-#         val_data = data_loader.val.dataset.data[val_inds]
-
         if self.end_plotter is not None:
             plots = self.end_plotter.plot(variable_dict)
             wandb.log(plots)
