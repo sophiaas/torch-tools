@@ -113,25 +113,22 @@ class Trainer(torch.nn.Module):
             for i in range(start_epoch, start_epoch + epochs + 1):
                 self.epoch = i
                 log_dict, plot_variable_dict = self.step(data_loader.train, grad=True)
+
+                if data_loader.val is not None:
+                    # By default, plots are only generated on train steps
+                    val_log_dict, _ = self.evaluate(
+                        data_loader.val
+                    ) 
+                else:
+                    val_log_dict = None
+            
                 self.logger.log_step(
                     log_dict=log_dict,
+                    val_log_dict=val_log_dict,
                     variable_dict=plot_variable_dict,
-                    step_type="train",
                     epoch=self.epoch,
                     n_examples=self.n_examples,
                 )
-
-                if data_loader.val is not None:
-                    val_log_dict, val_plot_variable_dict = self.evaluate(
-                        data_loader.val
-                    )
-                    self.logger.log_step(
-                        log_dict=val_log_dict,
-                        variable_dict=val_plot_variable_dict,
-                        step_type="val",
-                        epoch=self.epoch,
-                        n_examples=self.n_examples,
-                    )
 
                 if i % print_interval == 0 and print_status_updates == True:
                     if data_loader.val is not None:
@@ -166,34 +163,3 @@ class Trainer(torch.nn.Module):
                 result_dict_val["total_loss"]
             )
         print(update_string)
-
-
-# # below: all accumulator, all in step
-
-#     def reset_accumulator(self):
-#         d = {"total_loss": 0}
-
-#         if self.regularizer is not None:
-#             d["regularization_loss"] = 0
-
-#         return d
-
-#     def accumulate_loss(self, x, out, labels, accumulator):
-#         L = self.loss(out, labels)
-#         accumulator["total_loss"] += L
-#         L_reg, accumulator = self.get_regularizer_loss(x, out, accumulator)
-#         L += L_reg
-#         return L, accumulator
-
-#     def average_loss(self, accumulator, n_data_points):
-#         for key in accumulator.keys():
-#             accumulator[key] /= n_data_points
-#         return accumulator
-
-#     def get_regularizer_loss(self, x, out, accumulator):
-#         if self.regularizer is not None:
-#             L_reg = self.regularizer(self.model.state_dict())
-#             accumulator["regularization_loss"] += L_reg
-#         else:
-#             L_reg = 0.0
-#         return L_reg, accumulator
