@@ -1,5 +1,7 @@
 import wandb
 from torch.utils.tensorboard import SummaryWriter
+import torch
+import os
 
 
 class WBLogger:
@@ -11,6 +13,7 @@ class WBLogger:
         watch_interval=1000,
         log_interval=1,
         plot_interval=100,
+        checkpoint_interval=10,
         step_plotter=None,
         end_plotter=None,
     ):
@@ -30,6 +33,7 @@ class WBLogger:
         self.watch_interval = watch_interval
         self.log_interval = log_interval
         self.plot_interval = plot_interval
+        self.checkpoint_interval = checkpoint_interval
         self.step_plotter = step_plotter
         self.end_plotter = end_plotter
         self.is_finished = False
@@ -45,7 +49,9 @@ class WBLogger:
                 reinit=True,
             )
             self.is_finished = False
-        wandb.watch(model, log_freq=self.watch_interval, log_graph=True)
+        wandb.watch(model, log_freq=self.watch_interval, log_graph=False)
+        os.makedirs(os.path.join(wandb.run.dir, "checkpoints"), exist_ok=True)
+        
 
     def log_step(self, log_dict, variable_dict, epoch, val_log_dict=None, n_examples=None):
         full_log_dict = {}
@@ -68,13 +74,18 @@ class WBLogger:
             wandb.log(full_log_dict)
 
     def save_checkpoint(self, model, iter):
-        return
+        if iter % self.checkpoint_interval == 0:
+            torch.save(
+                model,
+                os.path.join(wandb.run.dir, "checkpoints", "checkpoint_{}.pt".format(iter)),
+            )
+            wandb.save(os.path.join(wandb.run.dir, "checkpoints", "checkpoint_{}.pt".format(iter)), base_path=wandb.run.dir, policy="now")
 
     def end(self, variable_dict):
         if self.end_plotter is not None:
             plots = self.end_plotter.plot(variable_dict)
             wandb.log(plots)
-
+            
         wandb.finish()
         self.is_finished = True
 
