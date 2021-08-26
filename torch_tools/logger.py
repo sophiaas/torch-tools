@@ -23,13 +23,13 @@ class WBLogger:
         """
         self.project = project
         self.entity = entity
-        self.run = wandb.init(
-            config=config,
-            project=self.project,
-            entity=self.entity,
-            resume="allow",
-            reinit=True,
-        )
+#         self.run = wandb.init(
+#             config=config,
+#             project=self.project,
+#             entity=self.entity,
+#             resume="allow",
+#             reinit=True,
+#         )
         self.watch_interval = watch_interval
         self.log_interval = log_interval
         self.plot_interval = plot_interval
@@ -39,16 +39,16 @@ class WBLogger:
         self.is_finished = False
 
     def begin(self, model, data_loader):
-        if self.is_finished:
-            run_id = self.run.id
-            self.run = wandb.init(
-                id=run_id,
-                project=self.project,
-                entity=self.entity,
-                resume="allow",
-                reinit=True,
-            )
-            self.is_finished = False
+#         if self.is_finished:
+#             run_id = self.run.id
+#             self.run = wandb.init(
+#                 id=run_id,
+#                 project=self.project,
+#                 entity=self.entity,
+#                 resume="allow",
+#                 reinit=True,
+#             )
+#             self.is_finished = False
         wandb.watch(model, log_freq=self.watch_interval, log_graph=False)
         os.makedirs(os.path.join(wandb.run.dir, "checkpoints"), exist_ok=True)
         
@@ -85,7 +85,7 @@ class WBLogger:
         if self.end_plotter is not None:
             plots = self.end_plotter.plot(variable_dict)
             wandb.log(plots)
-            
+                        
         wandb.finish()
         self.is_finished = True
 
