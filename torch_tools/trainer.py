@@ -5,6 +5,7 @@ import torch
 from torch.nn import ParameterDict
 import torch_tools.utils as utils
 from inspect import signature
+import copy
 
 
 class Trainer(torch.nn.Module):
@@ -16,18 +17,19 @@ class Trainer(torch.nn.Module):
         optimizer_config,
         regularizer=None,
         normalizer=None,
-        device="cuda",
     ):
         super().__init__()
         self.model = model
+        self.loss = loss
+        self.logger = logger
         self.regularizer = regularizer
         self.normalizer = normalizer
-        self.device = device
-        self.loss = loss
+
         self.epoch = 0
         self.n_examples = 0
-        self.logger = logger
 
+        
+        optimizer_config = copy.deepcopy(optimizer_config)
         optimizer_config["params"]["params"] = model.parameters()
         self.optimizer = optimizer_config.build()
 
@@ -57,8 +59,8 @@ class Trainer(torch.nn.Module):
             reg_loss = 0
             total_loss = 0
 
-            x = x.to(self.device)
-            labels = labels.to(self.device)
+            x = x.to(self.model.device)
+            labels = labels.to(self.model.device)
 
             if grad:
                 self.optimizer.zero_grad()
