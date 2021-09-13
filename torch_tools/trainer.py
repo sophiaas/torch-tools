@@ -14,7 +14,7 @@ class Trainer(torch.nn.Module):
         model,
         loss,
         logger,
-        optimizer_config,
+        optimizer,
         regularizer=None,
         normalizer=None,
     ):
@@ -24,14 +24,10 @@ class Trainer(torch.nn.Module):
         self.logger = logger
         self.regularizer = regularizer
         self.normalizer = normalizer
+        self.optimizer = optimizer
 
         self.epoch = 0
         self.n_examples = 0
-
-        
-        optimizer_config = copy.deepcopy(optimizer_config)
-        optimizer_config["params"]["params"] = model.parameters()
-        self.optimizer = optimizer_config.build()
 
     def step(self, data_loader, grad=True):
         """Compute a single step of training.

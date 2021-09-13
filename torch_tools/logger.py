@@ -9,6 +9,7 @@ class WBLogger:
         self,
         config,
         project=None,
+        data_project=None,
         entity=None,
         watch_interval=1000,
         log_interval=1,
@@ -22,6 +23,7 @@ class WBLogger:
         log_interval is in number of epochs
         """
         self.project = project
+        self.data_project = data_project
         self.entity = entity
 #         self.run = wandb.init(
 #             config=config,
