@@ -85,6 +85,9 @@ class Trainer(torch.nn.Module):
             if grad:
                 total_loss.backward()
                 self.optimizer.step()
+                
+            if self.normalizer is not None:
+                self.normalizer(self.model.state_dict())
 
             log_dict["total_loss"] += total_loss
 
