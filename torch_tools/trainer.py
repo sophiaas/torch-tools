@@ -76,8 +76,8 @@ class Trainer(torch.nn.Module):
                 reg_variable_dict = {
                     "x": x,
                     "out": out,
-                    "params": self.model.state_dict(),
-                }
+                } | self.model.state_dict()
+
                 reg_loss += self.regularizer(reg_variable_dict)
                 log_dict["reg_loss"] += reg_loss
                 total_loss += reg_loss

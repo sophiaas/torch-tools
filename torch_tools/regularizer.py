@@ -30,37 +30,39 @@ class Regularizer(torch.nn.Module):
         return self.coefficient * penalty
 
 
-class OldMultiRegularizer(torch.nn.Module):
-    def __init__(self, regularizers):
-        """
-        regularizers: list of regularizer objects
-        """
-        super().__init__()
-        self.regularizers = regularizers
+# class MultiRegularizer(torch.nn.Module):
+#     def __init__(self, regularizers, coefficient):
+#         """
+#         regularizers: list of regularizer objects
+#         """
+#         super().__init__()
+#         self.coefficient = coefficient
+#         self.regularizers = regularizers
 
-    def __str__(self):
-        return "".join(["{}\n".format(str(reg)) for reg in self.regularizers])
+#     def __str__(self):
+#         return "".join(["{}\n".format(str(reg)) for reg in self.regularizers])
 
-    def forward_dict(self, variable_dict):
-        return {
-            reg.name: reg.compute_penalty(variable_dict) for reg in self.regularizers
-        }
+#     def forward_dict(self, variable_dict):
+#         return {
+#             reg.name: reg.compute_penalty(variable_dict) for reg in self.regularizers
+#         }
 
-    def forward(self, variable_dict):
-        total_penalty = 0
-        for i, reg in enumerate(self.regularizers):
-            penalty = reg.forward(variable_dict)
-            total_penalty += penalty
-        return total_penalty
+#     def forward(self, variable_dict):
+#         total_penalty = 0
+#         for i, reg in enumerate(self.regularizers):
+#             penalty = reg.forward(variable_dict)
+#             total_penalty += penalty
+#         return total_penalty * self.coefficient
     
 
 class MultiRegularizer(torch.nn.Module):
-    def __init__(self, regularizer_configs):
+    def __init__(self, regularizer_configs, coefficient):
         """
-        regularizer_configs: list of regularizer configs
+        regularizer_configs: dict of regularizer configs
         """
         super().__init__()
-        self.regularizers = [x.build() for x in regularizer_configs]
+        self.coefficient = coefficient
+        self.regularizers = [x.build() for x in regularizer_configs.values()]
 
     def __str__(self):
         return "".join(["{}\n".format(str(reg)) for reg in self.regularizers])
@@ -75,4 +77,4 @@ class MultiRegularizer(torch.nn.Module):
         for i, reg in enumerate(self.regularizers):
             penalty = reg.forward(variable_dict)
             total_penalty += penalty
-        return total_penalty
+        return total_penalty * self.coefficient
