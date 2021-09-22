@@ -124,6 +124,7 @@ class Trainer(torch.nn.Module):
                     val_log_dict = None
             
                 self.logger.log_step(
+                    trainer=self,
                     log_dict=log_dict,
                     val_log_dict=val_log_dict,
                     variable_dict=plot_variable_dict,
@@ -137,17 +138,15 @@ class Trainer(torch.nn.Module):
                     else:
                         self.print_update(log_dict)
 
-                self.logger.save_checkpoint(self.model, self.epoch)
-
                 self.n_examples += len(data_loader.train.dataset)
 
         except KeyboardInterrupt:
             print("Stopping and saving run at epoch {}".format(i))
         end_dict = {"model": self.model, "data_loader": data_loader}
-        self.logger.end(end_dict)
+        self.logger.end(self, end_dict, self.epoch)
 
     def resume(self, data_loader, epochs):
-        self.train(data_loader, epochs, start_epoch=self.epoch)
+        self.train(data_loader, epochs, start_epoch=self.epoch+1)
 
     @torch.no_grad()
     def evaluate(self, data_loader):

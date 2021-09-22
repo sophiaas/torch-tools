@@ -25,6 +25,7 @@ class WBLogger:
         self.project = project
         self.data_project = data_project
         self.entity = entity
+        self.config = config
 #         self.run = wandb.init(
 #             config=config,
 #             project=self.project,
@@ -55,7 +56,7 @@ class WBLogger:
         os.makedirs(os.path.join(wandb.run.dir, "checkpoints"), exist_ok=True)
         
 
-    def log_step(self, log_dict, variable_dict, epoch, val_log_dict=None, n_examples=None):
+    def log_step(self, trainer, log_dict, variable_dict, epoch, val_log_dict=None, n_examples=None):
         full_log_dict = {}
         if epoch % self.log_interval == 0:
             if val_log_dict is not None:
@@ -73,24 +74,41 @@ class WBLogger:
                 plots = self.step_plotter.plot(variable_dict)
                 full_log_dict.update(plots)
 
-            wandb.log(full_log_dict)
+            wandb.log(full_log_dict, step=epoch)
+        if epoch % self.checkpoint_interval == 0:
+            self.save_checkpoint(trainer, epoch)
 
-    def save_checkpoint(self, model, iter):
-        if iter % self.checkpoint_interval == 0:
-            torch.save(
-                model,
-                os.path.join(wandb.run.dir, "checkpoints", "checkpoint_{}.pt".format(iter)),
-            )
-            wandb.save(os.path.join(wandb.run.dir, "checkpoints", "checkpoint_{}.pt".format(iter)), base_path=wandb.run.dir, policy="now")
-
-    def end(self, variable_dict):
+    def end(self, trainer, variable_dict, epoch):
         if self.end_plotter is not None:
             plots = self.end_plotter.plot(variable_dict)
-            wandb.log(plots)
+            wandb.log(plots, step=epoch)
+            
+        self.save_checkpoint(trainer, epoch)
                         
         wandb.finish()
         self.is_finished = True
+        
+    def save_checkpoint(self, trainer, iter):
+        checkpoint = {
+            "trainer": trainer,
+            "model_state_dict": trainer.model.state_dict(),
+            'optimizer_state_dict': trainer.optimizer.state_dict(),
+        }
+        torch.save(
+            checkpoint,
+            os.path.join(wandb.run.dir, "checkpoints", "checkpoint_{}.pt".format(iter)),
+        )
+        wandb.save(os.path.join(wandb.run.dir, "checkpoints", "checkpoint_{}.pt".format(iter)), base_path=wandb.run.dir, policy="now")
+        
+#     def save_checkpoint(self, model, iter):
+#         if iter % self.checkpoint_interval == 0:
+#             torch.save(
+#                 model,
+#                 os.path.join(wandb.run.dir, "checkpoints", "checkpoint_{}.pt".format(iter)),
+#             )
+#             wandb.save(os.path.join(wandb.run.dir, "checkpoints", "checkpoint_{}.pt".format(iter)), base_path=wandb.run.dir, policy="now")
 
+            
 
 class TBLogger:
     def __init__(self, log_interval, logdir=None):
