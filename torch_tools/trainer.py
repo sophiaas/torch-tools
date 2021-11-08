@@ -15,6 +15,7 @@ class Trainer(torch.nn.Module):
         loss,
         logger,
         optimizer,
+        scheduler=None,
         regularizer=None,
         normalizer=None,
     ):
@@ -25,7 +26,7 @@ class Trainer(torch.nn.Module):
         self.regularizer = regularizer
         self.normalizer = normalizer
         self.optimizer = optimizer
-
+        self.scheduler = scheduler
         self.epoch = 0
         self.n_examples = 0
 
@@ -76,7 +77,7 @@ class Trainer(torch.nn.Module):
                 reg_variable_dict = {
                     "x": x,
                     "out": out,
-                } | self.model.state_dict()
+                } | dict(self.model.named_parameters()) # Must use named parameters rather than state_dict to preserve grads
 
                 reg_loss += self.regularizer(reg_variable_dict)
                 log_dict["reg_loss"] += reg_loss
@@ -114,6 +115,9 @@ class Trainer(torch.nn.Module):
             for i in range(start_epoch, start_epoch + epochs + 1):
                 self.epoch = i
                 log_dict, plot_variable_dict = self.step(data_loader.train, grad=True)
+                
+                if self.scheduler is not None:
+                    self.scheduler.step()
 
                 if data_loader.val is not None:
                     # By default, plots are only generated on train steps
