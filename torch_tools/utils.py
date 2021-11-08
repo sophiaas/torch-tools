@@ -3,6 +3,8 @@ import pickle
 import inspect
 import torch
 import copy
+import wandb
+
 
 class ParameterDict(dict):
     def __init__(self, *args, **kwargs):
@@ -42,3 +44,20 @@ def load_checkpoint(logdir):
         trainer.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         checkpoint = trainer
     return checkpoint
+
+
+def load_wandb_checkpoint(entity, project, run_id):
+    api = wandb.Api()
+    run = api.run("{}/{}/{}".format(entity, project, run_id))
+    epoch = run.summary.epoch
+    loaded = False
+    while not loaded:
+        if epoch < 0:
+            raise Exception("No saved checkpoints.")
+        try:
+            checkpoint_path = wandb.restore('checkpoints/checkpoint_{}.pt'.format(epoch), run_path="{}/{}/{}".format(entity, project, run_id)).name
+            loaded = True
+        except:
+            epoch -= 1
+    trainer = load_checkpoint(checkpoint_path)
+    return trainer
