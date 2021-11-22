@@ -40,7 +40,11 @@ class DatasetWrapper(Dataset):
 
 
 class TrainValLoader:
-    def __init__(self, batch_size, fraction_val=0.2, num_workers=0, seed=0):
+    def __init__(self, 
+                 batch_size, 
+                 fraction_val=0.2,
+                 num_workers=0, 
+                 seed=0):
         assert (
             fraction_val <= 1.0 and fraction_val >= 0.0
         ), "fraction_val must be a fraction between 0 and 1"
@@ -51,9 +55,9 @@ class TrainValLoader:
         self.fraction_val = fraction_val
         self.seed = seed
         self.num_workers = num_workers
-
-    def load(self, dataset):
-
+        
+    def split_data(self, dataset):
+        
         if self.fraction_val > 0.0:
             dataset_size = len(dataset)
             indices = list(range(dataset_size))
@@ -62,95 +66,42 @@ class TrainValLoader:
             np.random.shuffle(indices)
 
             train_indices, val_indices = indices[split:], indices[:split]
-
-            train_sampler = SubsetRandomSampler(train_indices)
-            valid_sampler = SubsetRandomSampler(val_indices)
-
-            self.val = torch.utils.data.DataLoader(
-                dataset,
+            val_dataset = copy.deepcopy(dataset)
+            val_dataset.data = val_dataset.data[val_indices]
+            val_dataset.labels = val_dataset.labels[val_indices]
+            
+            train_dataset = copy.deepcopy(dataset)
+            train_dataset.data = train_dataset.data[train_indices]
+            train_dataset.labels = train_dataset.labels[train_indices]
+        
+        else:
+            val_dataset = None
+    
+        return train_dataset, val_dataset
+    
+    def construct_data_loaders(self, train_dataset, val_dataset):
+        if val_dataset is not None:
+            val = torch.utils.data.DataLoader(
+                val_dataset,
                 batch_size=self.batch_size,
-                sampler=valid_sampler,
+                shuffle=True,
                 num_workers=self.num_workers,
                 pin_memory=True
             )
-
+        
         else:
-
-            self.val = None
-            train_sampler = None
-
-        self.train = torch.utils.data.DataLoader(
-            dataset,
+            val = None
+            
+        train = torch.utils.data.DataLoader(
+            train_dataset,
             batch_size=self.batch_size,
-            sampler=train_sampler,
+            shuffle=True,
             num_workers=self.num_workers,
             pin_memory=True
         )
         
-#     def to(self, device):
-#         for k in dir(self.train.dataset):
-#             v = getattr(self.train.dataset, k)
-#             if type(v) == torch.Tensor:
-#                 setattr(self.train.dataset, k, v.to(device))
-#         if self.val is not None:
-#             for k in dir(self.val.dataset):
-#                 v = getattr(self.val.dataset, k)
-#                 if type(v) == torch.Tensor:
-#                     setattr(self.val.dataset, k, v.to(device))
-                    
-                    
-    
-# class TrainValLoader(torch.nn.Module):
-#     def __init__(self, batch_size, fraction_val=0.2, num_workers=0, seed=0):
-#         assert (
-#             fraction_val <= 1.0 and fraction_val >= 0.0
-#         ), "fraction_val must be a fraction between 0 and 1"
+        return train, val         
 
-#         np.random.seed(seed)
-
-#         self.batch_size = batch_size
-#         self.fraction_val = fraction_val
-#         self.seed = seed
-#         self.num_workers = num_workers
-
-#     def load(self, dataset):
-
-#         if self.fraction_val > 0.0:
-#             val_dataset = copy.deepcopy(dataset)
-#             dataset_size = len(dataset)
-#             indices = list(range(dataset_size))
-#             split = int(np.floor(self.fraction_val * len(dataset)))
-
-#             np.random.shuffle(indices)
-
-#             train_indices, val_indices = indices[split:], indices[:split]
-#             val_dataset.data = dataset.data[val_indices]
-#             val_dataset.labels = dataset.data[val_indices]
-            
-#             self.val = torch.utils.data.DataLoader(
-#                 dataset[val_indices],
-#                 batch_size=self.batch_size,
-#                 num_workers=self.num_workers,
-#             )
-
-#         else:
-
-#             self.val = None
-#             train_indices = np.arange(len(dataset))
-            
-#         import pdb; pdb.set_trace()
-
-#         self.train = torch.utils.data.DataLoader(
-#             dataset[train_indices],
-#             batch_size=self.batch_size,
-#             num_workers=self.num_workers,
-#         )
-        
-#     def to(self, device):
-        
-#         self.train.dataset.data = self.train.dataset.data.to(device)
-#         self.train.dataset.labels = self.train.dataset.labels.to(device)
-        
-#         if self.val is not None:
-#             self.val.dataset.data = self.val.dataset.data.to(device)
-#             self.val.dataset.labels = self.val.dataset.labels.to(device)
+    def load(self, dataset):
+        train_dataset, val_dataset = self.split_data(dataset)
+        self.train, self.val = self.construct_data_loaders(train_dataset, val_dataset)
