@@ -13,8 +13,8 @@ class Trainer(torch.nn.Module):
         self,
         model,
         loss,
-        logger,
         optimizer,
+        logger=None,
         scheduler=None,
         regularizer=None,
         normalizer=None,
@@ -88,7 +88,7 @@ class Trainer(torch.nn.Module):
                 self.optimizer.step()
                 
             if self.normalizer is not None:
-                self.normalizer(self.model.state_dict())
+                self.normalizer(dict(self.model.named_parameters()))
 
             log_dict["total_loss"] += total_loss
 
@@ -109,15 +109,14 @@ class Trainer(torch.nn.Module):
         print_status_updates=True,
         print_interval=1,
     ):
-        self.logger.begin(self.model, data_loader)
+        if self.logger is not None:
+            self.logger.begin(self.model, data_loader)
 
         try:
             for i in range(start_epoch, start_epoch + epochs + 1):
                 self.epoch = i
                 log_dict, plot_variable_dict = self.step(data_loader.train, grad=True)
                 
-                if self.scheduler is not None:
-                    self.scheduler.step()
 
                 if data_loader.val is not None:
                     # By default, plots are only generated on train steps
@@ -126,15 +125,22 @@ class Trainer(torch.nn.Module):
                     ) 
                 else:
                     val_log_dict = None
-            
-                self.logger.log_step(
-                    trainer=self,
-                    log_dict=log_dict,
-                    val_log_dict=val_log_dict,
-                    variable_dict=plot_variable_dict,
-                    epoch=self.epoch,
-                    n_examples=self.n_examples,
-                )
+                    
+                if self.scheduler is not None:
+                    if val_log_dict is not None:
+                        self.scheduler.step(val_log_dict["total_loss"])
+                    else:
+                        self.scheduler.step(train_log_dict["total_loss"])
+
+                if self.logger is not None:
+                    self.logger.log_step(
+                        trainer=self,
+                        log_dict=log_dict,
+                        val_log_dict=val_log_dict,
+                        variable_dict=plot_variable_dict,
+                        epoch=self.epoch,
+                        n_examples=self.n_examples,
+                    )
 
                 if i % print_interval == 0 and print_status_updates == True:
                     if data_loader.val is not None:
@@ -147,7 +153,8 @@ class Trainer(torch.nn.Module):
         except KeyboardInterrupt:
             print("Stopping and saving run at epoch {}".format(i))
         end_dict = {"model": self.model, "data_loader": data_loader}
-        self.logger.end(self, end_dict, self.epoch)
+        if self.logger is not None:
+            self.logger.end(self, end_dict, self.epoch)
 
     def resume(self, data_loader, epochs):
         self.train(data_loader, epochs, start_epoch=self.epoch+1)
