@@ -2,3 +2,5 @@ numpy
 matplotlib
 torch
 pickle
+tensorboard
+wandb
